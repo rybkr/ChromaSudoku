@@ -7,7 +7,6 @@
 #include "audio.h"
 #include "display.h"
 #include "eeprom.h"
-#include "joystick.h"
 #include "keypad.h"
 #include "hub75.h"
 
@@ -47,7 +46,6 @@ int main()
     audio_init();
     display_init();
     eeprom_init();
-    joystick_init();
     keypad_init();
     hub75_init();
     

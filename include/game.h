@@ -35,7 +35,6 @@ extern const struct {
 void game_init(void);
 void game_new_puzzle(difficulty_t difficulty);
 void game_update(void); // Main game loop update
-void game_handle_joystick(void);
 void game_handle_keypad(void);
 bool game_check_solved(void);
 void game_draw_board(void);

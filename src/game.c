@@ -1,7 +1,6 @@
 #include "pico/stdlib.h"
 #include "game.h"
 #include "hub75.h"
-#include "joystick.h"
 #include "keypad.h"
 #include "display.h"
 #include "audio.h"
@@ -94,7 +93,6 @@ void game_update(void) {
     
     display_show_timer(game_state.elapsed_time);
     
-    game_handle_joystick();
     game_handle_keypad();
     
     if (!game_state.solved && game_check_solved()) {
@@ -104,39 +102,6 @@ void game_update(void) {
     }
     
     game_draw_board();
-}
-
-void game_handle_joystick(void) {
-    joystick_direction_t dir = joystick_get_direction();
-    
-    switch (dir) {
-        case JOYSTICK_UP:
-            if (game_state.cursor_row > 0) {
-                game_state.cursor_row--;
-            }
-            sleep_ms(200);
-            break;
-        case JOYSTICK_DOWN:
-            if (game_state.cursor_row < 8) {
-                game_state.cursor_row++;
-            }
-            sleep_ms(200);
-            break;
-        case JOYSTICK_LEFT:
-            if (game_state.cursor_col > 0) {
-                game_state.cursor_col--;
-            }
-            sleep_ms(200);
-            break;
-        case JOYSTICK_RIGHT:
-            if (game_state.cursor_col < 8) {
-                game_state.cursor_col++;
-            }
-            sleep_ms(200);
-            break;
-        default:
-            break;
-    }
 }
 
 void game_handle_keypad(void) {
