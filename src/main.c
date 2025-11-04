@@ -2,8 +2,14 @@
 #include "pico/stdlib.h"
 #endif
 #include <stdio.h>
-#include <time.h>
 #include "sudoku.h"
+#include "game.h"
+#include "audio.h"
+#include "display.h"
+#include "eeprom.h"
+#include "joystick.h"
+#include "keypad.h"
+#include "hub75.h"
 
 void pretty_print(sudoku_puzzle_t *puzzle)
 {
@@ -35,9 +41,30 @@ int main()
 
     printf("\n\n========= RP2350 Chroma Sudoku =========\n");
 #ifndef NOPICO
-    printf("\nRunning on RP2350...\n");
-#endif
-
+    printf("\nInitializing hardware...\n");
+    
+    // Initialize all subsystems
+    audio_init();
+    display_init();
+    eeprom_init();
+    joystick_init();
+    keypad_init();
+    hub75_init();
+    
+    printf("Hardware initialized\n");
+    printf("Starting game...\n");
+    
+    // Initialize game
+    game_init();
+    game_new_puzzle(DIFFICULTY_EASY);
+    
+    // Main game loop
+    for (;;) {
+        game_update();
+        sleep_ms(10);  // Small delay to prevent overwhelming the CPU
+    }
+#else
+    // Test mode without hardware
     clock_t start = clock(), diff;
 
     sudoku_puzzle_t puzzle;
@@ -55,6 +82,7 @@ int main()
 
     diff = clock() - start;
     printf("Puzzle generated in %lu milliseconds\n", diff * 1000 / CLOCKS_PER_SEC);
+#endif
 
     return 0;
 }
