@@ -8,7 +8,11 @@ extern const int SPI_DISP_TX;
 
 // Display functions
 void display_init(void);
+void display_clear(void);
+void display_print_at(uint8_t row, uint8_t col, const char *msg);
 void display_show_difficulty(const char *difficulty);
 void display_show_timer(uint32_t seconds);
+void display_show_status(const char *msg);
+void display_show_splash(void);
 
 #endif // DISPLAY_H
