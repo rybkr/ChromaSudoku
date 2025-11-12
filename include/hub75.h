@@ -2,6 +2,7 @@
 #define HUB75_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 // HUB75 display configuration
 #define HUB75_WIDTH 32

@@ -25,11 +25,21 @@ typedef struct {
 } game_state_t;
 
 // Color mapping (9 distinct colors for 9 Sudoku numbers)
-extern const struct {
+static const struct {
     uint8_t r;
     uint8_t g;
     uint8_t b;
-} color_map[9];
+} color_map[9] = {
+    {255, 0, 0},     // Red - 1
+    {0, 255, 0},     // Green - 2
+    {0, 0, 255},     // Blue - 3
+    {255, 255, 0},   // Yellow - 4
+    {255, 0, 255},   // Magenta - 5
+    {0, 255, 255},   // Cyan - 6
+    {255, 128, 0},   // Orange - 7
+    {128, 0, 255},   // Purple - 8
+    {255, 192, 203}  // Pink - 9
+};
 
 // Game functions
 void game_init(void);
