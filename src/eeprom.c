@@ -1,6 +1,16 @@
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
 #include "eeprom.h"
+#include <string.h>
+
+// TODO: Document EEPROM Memory Layout
+// DESIGN CONSIDERATIONS:
+// - High Scores: bytes 0x0000 - 0x00F3 (10 entries × 20 bytes each = 240 bytes)
+//   * Each entry: uint32_t (score) + char[16] (name) = 20 bytes
+//   * Index 0 = highest score, Index 9 = lowest score
+// - Future expansion: Game state, settings, statistics at higher addresses
+// - EEPROM is 32KB (0x8000), so plenty of space for future features
+// - Consider implementing wear-leveling if frequent writes needed
 
 // I2C configuration - update these for your hardware
 #define I2C_EEPROM i2c0
@@ -86,4 +96,159 @@ bool eeprom_read_high_score(uint8_t index, high_score_t *score) {
 
     uint16_t addr = index * sizeof(high_score_t);
     return eeprom_read(addr, (uint8_t *)score, sizeof(high_score_t));
+}
+
+// TODO: Implement eeprom_is_high_score()
+// LOGIC:
+// - Read all 10 high scores from EEPROM
+// - Compare the input score with each entry's score
+// - Return true if: (score > any existing score) OR (less than 10 scores stored)
+// - Need to handle uninitialized EEPROM (all 0xFF bytes)
+// - Check if there's an empty slot (score == 0 and name[0] == '\0' or 0xFF)
+// TASK: Implement the function signature and logic
+bool eeprom_is_high_score(uint32_t score) {
+    high_score_t entries[10];
+
+    if (!eeprom_read(0, (uint8_t *)entries, sizeof(entries))) {
+        return false;
+    }
+
+    uint8_t valid_entries = 0;
+    uint32_t lowest_score = UINT32_MAX;
+
+    for (uint8_t i = 0; i < 10; ++i) {
+        const high_score_t *entry = &entries[i];
+        const uint32_t entry_score = entry->score;
+        const uint8_t first_char = (uint8_t)entry->name[0];
+
+        // Skip uninitialized or empty records
+        if ((entry_score == 0xFFFFFFFF && first_char == 0xFF) ||
+            (entry_score == 0 && (first_char == 0 || first_char == 0xFF))) {
+            continue;
+        }
+
+        ++valid_entries;
+        if (entry_score < lowest_score) {
+            lowest_score = entry_score;
+        }
+
+        if (score > entry_score) {
+            return true;
+        }
+    }
+
+    if (valid_entries < 10) {
+        return true;
+    }
+
+    return score > lowest_score;
+}
+
+// TODO: Implement eeprom_insert_high_score()
+// LOGIC:
+// - Read all 10 high scores
+// - Find the correct position where new score should go (sorted descending)
+// - If top 10 is full, only add if score is better than #10
+// - Shift lower scores down (lose #10 if full)
+// - Write the high score struct with name at correct position
+// - Save all 10 scores back to EEPROM
+// TASK: Implement the function signature and logic
+bool eeprom_insert_high_score(const high_score_t *score) {
+    if (score == NULL) {
+        return false;
+    }
+
+    high_score_t stored[10];
+    if (!eeprom_read(0, (uint8_t *)stored, sizeof(stored))) {
+        return false;
+    }
+
+    high_score_t compact[10];
+    uint8_t count = 0;
+
+    for (uint8_t i = 0; i < 10; ++i) {
+        const high_score_t *entry = &stored[i];
+        const uint32_t entry_score = entry->score;
+        const uint8_t first_char = (uint8_t)entry->name[0];
+
+        const bool invalid = (entry_score == 0xFFFFFFFF && first_char == 0xFF) ||
+                             (entry_score == 0 && (first_char == 0 || first_char == 0xFF));
+        if (invalid) {
+            continue;
+        }
+
+        compact[count++] = *entry;
+    }
+
+    uint8_t insert_pos = 0;
+    while (insert_pos < count && score->score <= compact[insert_pos].score) {
+        ++insert_pos;
+    }
+
+    if (count == 10 && insert_pos == count) {
+        return false;
+    }
+
+    const uint8_t new_count = count < 10 ? count + 1 : 10;
+    for (int8_t idx = new_count - 1; idx > (int8_t)insert_pos; --idx) {
+        compact[idx] = compact[idx - 1];
+    }
+    compact[insert_pos] = *score;
+
+    high_score_t out[10];
+    memset(out, 0xFF, sizeof(out));
+    memcpy(out, compact, new_count * sizeof(high_score_t));
+
+    return eeprom_write(0, (const uint8_t *)out, sizeof(out));
+}
+
+// TODO: Implement eeprom_get_all_high_scores()
+// LOGIC:
+// - Read all 10 high score entries from EEPROM into output buffer
+// - Handle uninitialized EEPROM gracefully (scores might be 0xFF)
+// - Return count of valid scores (non-zero/non-empty entries)
+// - Caller will use this to display top scores
+// TASK: Implement the function signature and logic
+// Note: Consider if you want to return just filled slots or all 10
+bool eeprom_get_all_high_scores(high_score_t *scores) {
+    if (scores == NULL) {
+        return false;
+    }
+
+    high_score_t raw[10];
+    if (!eeprom_read(0, (uint8_t *)raw, sizeof(raw))) {
+        return false;
+    }
+
+    uint8_t count = 0;
+    for (uint8_t i = 0; i < 10; ++i) {
+        const uint32_t entry_score = raw[i].score;
+        const uint8_t first_char = (uint8_t)raw[i].name[0];
+        const bool empty = ((entry_score == 0 || entry_score == 0xFFFFFFFFu) &&
+                            (first_char == 0x00 || first_char == 0xFF));
+
+        if (empty) {
+            continue;
+        }
+
+        scores[count++] = raw[i];
+    }
+
+    if (count < 10) {
+        memset(&scores[count], 0, (10 - count) * sizeof(high_score_t));
+    }
+
+    return true;
+}
+
+// TODO: Implement eeprom_clear_high_scores()
+// LOGIC:
+// - Clear all 10 high score slots
+// - Write zeros or 0xFF pattern to high score region
+// - Used for factory reset or testing
+// TASK: Implement the function signature and logic (optional but useful)
+bool eeprom_clear_high_scores(void) {
+    uint8_t blank[10 * sizeof(high_score_t)];
+    memset(blank, 0xFF, sizeof(blank));
+    return eeprom_write(0, blank, sizeof(blank));
 }

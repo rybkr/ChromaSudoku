@@ -8,22 +8,6 @@
 #include <stdio.h>
 #include <string.h>
 
-const struct {
-    uint8_t r;
-    uint8_t g;
-    uint8_t b;
-} color_map[9] = {
-    {255, 0, 0},     // Red - 1
-    {0, 255, 0},     // Green - 2
-    {0, 0, 255},     // Blue - 3
-    {255, 255, 0},   // Yellow - 4
-    {255, 0, 255},   // Magenta - 5
-    {0, 255, 255},   // Cyan - 6
-    {255, 128, 0},   // Orange - 7
-    {128, 0, 255},   // Purple - 8
-    {255, 192, 203}  // Pink - 9
-};
-
 static game_state_t game_state;
 
 static color_t number_to_color(uint8_t num) {

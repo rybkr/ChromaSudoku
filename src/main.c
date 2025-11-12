@@ -9,6 +9,7 @@
 #include "eeprom.h"
 #include "keypad.h"
 #include "hub75.h"
+#include "hardware/gpio.h"
 
 void pretty_print(sudoku_puzzle_t *puzzle)
 {
@@ -55,12 +56,11 @@ int main()
     
     // Initialize game
     game_init();
-    game_new_puzzle(DIFFICULTY_EASY);
+    game_new_puzzle(DIFFICULTY_HARD);
     
     // Main game loop
     for (;;) {
         game_update();
-        sleep_ms(10);  // Small delay to prevent overwhelming the CPU
     }
 #else
     // Test mode without hardware

@@ -102,13 +102,13 @@ void keypad_init(void) {
     }
 
     hw_set_bits(&timer_hw->inte, 1U << 0);
-    irq_set_exclusive_handler(TIMER_IRQ_0, keypad_drive_column);
-    irq_set_enabled(TIMER_IRQ_0, 1);
+    irq_set_exclusive_handler(TIMER0_IRQ_0, keypad_drive_column);
+    irq_set_enabled(TIMER0_IRQ_0, 1);
     timer_hw->alarm[0] = timer_hw->timerawl + 1000000;
 
     hw_set_bits(&timer_hw->inte, 1U << 1);
-    irq_set_exclusive_handler(TIMER_IRQ_1, keypad_isr);
-    irq_set_enabled(TIMER_IRQ_1, 1);
+    irq_set_exclusive_handler(TIMER0_IRQ_1, keypad_isr);
+    irq_set_enabled(TIMER0_IRQ_1, 1);
     timer_hw->alarm[1] = timer_hw->timerawl + 1100000;
 }
 
