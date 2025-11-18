@@ -96,6 +96,7 @@ void game_handle_keypad(void) {
     
     if (keypad_is_pressed(event)) {
         char key = keypad_get_char(event);
+        printf("Key pressed: %c\n", key);
         
         if (key >= '1' && key <= '9') {
             game_state.selected_color = key - '1';

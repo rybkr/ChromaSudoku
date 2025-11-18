@@ -5,19 +5,19 @@
 #include "pico/stdlib.h"
 #include <stdint.h>
 
-#define HUB75_R0_PIN 12
-#define HUB75_G0_PIN 13
-#define HUB75_B0_PIN 14
-#define HUB75_R1_PIN 15
-#define HUB75_G1_PIN 16
-#define HUB75_B1_PIN 17
-#define HUB75_CLK_PIN 18
-#define HUB75_LAT_PIN 19
-#define HUB75_OE_PIN 20
+#define HUB75_R0_PIN 9
+#define HUB75_G0_PIN 10
+#define HUB75_B0_PIN 8
+#define HUB75_R1_PIN 7
+#define HUB75_G1_PIN 12
+#define HUB75_B1_PIN 6
+#define HUB75_CLK_PIN 19
+#define HUB75_LAT_PIN 16
+#define HUB75_OE_PIN 18
 #define HUB75_A_PIN 21
-#define HUB75_B_PIN 22
-#define HUB75_C_PIN 23
-#define HUB75_D_PIN 24
+#define HUB75_B_PIN 14
+#define HUB75_C_PIN 20
+#define HUB75_D_PIN 15
 
 static color_t frame_buffer[HUB75_NUM_PIXELS];
 
