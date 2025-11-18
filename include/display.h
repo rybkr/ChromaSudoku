@@ -14,5 +14,6 @@ void display_show_difficulty(const char *difficulty);
 void display_show_timer(uint32_t seconds);
 void display_show_status(const char *msg);
 void display_show_splash(void);
+void display_high_score(uint32_t seconds);
 
 #endif // DISPLAY_H

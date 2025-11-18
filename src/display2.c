@@ -5,9 +5,9 @@
 #include "eeprom.h"
 
 //define gpio pins connected to the LCD
-const int SPI_DISP_SCK = 10; //34; //18
-const int SPI_DISP_CSn = 11; //33; //21
-const int SPI_DISP_TX = 12;  //35; //19
+const int SPI1_DISP_SCK = 10; //34; //18
+const int SPI1_DISP_CSn = 9; //33; //21
+const int SPI1_DISP_TX = 11;  //35; //19
 
 //waits until spi is free then sends to LCD
 static void send_spi_cmd(spi_inst_t *spi, uint16_t value) {
@@ -24,9 +24,9 @@ static void send_spi_data(spi_inst_t *spi, uint16_t value) {
 
 //sets pins to spi role and initializes at 10khz
 static void init_chardisp_pins(void) {
-    gpio_set_function(SPI_DISP_CSn, GPIO_FUNC_SPI);
-    gpio_set_function(SPI_DISP_SCK, GPIO_FUNC_SPI);
-    gpio_set_function(SPI_DISP_TX, GPIO_FUNC_SPI);
+    gpio_set_function(SPI1_DISP_CSn, GPIO_FUNC_SPI);
+    gpio_set_function(SPI1_DISP_SCK, GPIO_FUNC_SPI);
+    gpio_set_function(SPI1_DISP_TX, GPIO_FUNC_SPI);
     spi_init(spi1, 10000); //once it works move to 200khz - 1MHz
     spi_set_format(spi1, 9, 0, 0, SPI_MSB_FIRST); //9 bits per frame. mode 0, send MSB first
     //if shit looks gibberish try mode 3 9,1,1,SPI...
@@ -52,7 +52,7 @@ static void cd_init(void) {
 
 //sets curser to line 1
 static void cd_display1(const char *str) {
-    send_spi_cmd(spi1, 2);
+    send_spi_cmd(spi1, 0x80);
     for (int i = 0; str[i] != 0; ++i) {
         send_spi_data(spi1, str[i]);
     }
@@ -60,7 +60,7 @@ static void cd_display1(const char *str) {
 
 //sets curser to line 2
 static void cd_display2(const char *str) {
-    send_spi_cmd(spi1, 0x2C);
+    send_spi_cmd(spi1, 0xC0);
     for (int i = 0; str[i] != 0; ++i) {
         send_spi_data(spi1, str[i]);
     }
@@ -106,12 +106,12 @@ void display2_print_at(uint8_t row, uint8_t col, const char *msg){ //allows us t
     }
 }
 void display2_show_splash(void){
-    display_clear();
-    display_print_at(0,0, " Chroma Sudoku ");
-    display_print_at(1,0, "    Team 76    ");
+    display2_clear();
+    display2_print_at(0,0, " Chroma Sudoku ");
+    display2_print_at(1,0, "    Team 76    ");
     
     sleep_ms(3000);
-    display_clear();
+    display2_clear();
 }
 
 void display2_high_score(uint32_t seconds){
@@ -122,7 +122,7 @@ void display2_high_score(uint32_t seconds){
     cd_display2(buf);
 }
 
-display2_show_instructions(void){
+void display2_show_instructions(void){
     display2_clear();
     display2_print_at(0, 0, "1-9: Place Color");
     display2_print_at(1, 0, "A: New  B: Reset");

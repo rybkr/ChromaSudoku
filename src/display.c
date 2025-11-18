@@ -2,7 +2,6 @@
 #include "hardware/spi.h"
 #include "hardware/gpio.h"
 #include "display.h"
-#include "eeprom.h"
 
 //define gpio pins connected to the LCD
 const int SPI_DISP_SCK = 34; //18
@@ -112,12 +111,4 @@ void display_show_splash(void){
     
     sleep_ms(3000);
     display_clear();
-}
-
-void display_high_score(uint32_t seconds){
-    char buf[17];
-    uint32_t mins = seconds / 60;
-    uint32_t secs = seconds % 60;
-    snprintf(buf, sizeof(buf), "Best: %02lu:%02lu       ", mins, secs);
-    cd_display2(buf);
 }

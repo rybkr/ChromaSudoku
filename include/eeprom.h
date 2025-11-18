@@ -21,5 +21,8 @@ bool eeprom_read(uint16_t addr, uint8_t *data, uint16_t len);
 bool eeprom_write(uint16_t addr, const uint8_t *data, uint16_t len);
 bool eeprom_write_high_score(uint8_t index, const high_score_t *score);
 bool eeprom_read_high_score(uint8_t index, high_score_t *score);
-
+bool eeprom_is_high_score(uint32_t score);
+bool eeprom_insert_high_score(const high_score_t *score);
+bool eeprom_get_all_high_scores(high_score_t *scores);
+bool eeprom_clear_high_scores(void);
 #endif // EEPROM_H

@@ -14,5 +14,6 @@ void display2_show_difficulty(const char *difficulty);
 void display2_show_timer(uint32_t seconds);
 void display2_show_status(const char *msg);
 void display2_show_splash(void);
+void display2_show_instructions(void);
 
 #endif // DISPLAY_H

@@ -69,13 +69,6 @@ void game_new_puzzle(difficulty_t difficulty) {
         default: diff_str = "Easy";
     }
     display_show_difficulty(diff_str);
-
-    high_score_t hs;
-    if (eeprom_read_high_score(0, &hs) && hs.score != 0xFFFFFFFF && hs.score != 0) {
-        display_high_score(hs.score);   // <-- your LCD function
-    } else {
-        display_high_score(0);          // Shows "Best: 00:00"
-    }
 }
 
 void game_update(void) {
@@ -83,40 +76,13 @@ void game_update(void) {
     game_state.elapsed_time = current_time - game_state.start_time;
     
     display_show_timer(game_state.elapsed_time);
-
-    if (!game_state.solved) {
-        display2_show_instructions();
-    }
-
-    high_score_t hs;
-    if (eeprom_read_high_score(0, &hs)) {
-        display_high_score(hs.score);
-    }
     
     game_handle_keypad();
     
     if (!game_state.solved && game_check_solved()) {
         game_state.solved = true;
         audio_play_victory_tune();
-
-        //solved display and play again
-        display_show_status("Solved!!");
-        display2_clear(); //replace with play again later?
-
         // TODO(rybkr): Save high score if applicable
-        uint32_t final_time = game_state.elapsed_time;
-
-        high_score_t score = {
-            .score = final_time,
-        };
-
-        // Check if this is a high score
-        if (eeprom_is_high_score(final_time)) {
-            eeprom_insert_high_score(&score);
-            display_show_status("New Best!");
-        } else {
-            display_show_status("Solved!");
-        }
     }
     
     game_draw_board();
