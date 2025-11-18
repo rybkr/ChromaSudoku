@@ -46,7 +46,10 @@ int main()
     // Initialize all subsystems
     audio_init();
     display_init();
+    display2_init();
     display_show_splash(); //possible screen before game screen
+    display2_show_splash();
+    display2_show_instructions();
     eeprom_init();
     keypad_init();
     hub75_init();
