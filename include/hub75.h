@@ -22,5 +22,6 @@ void hub75_set_pixel(uint8_t x, uint8_t y, color_t color);
 void hub75_clear(void);
 void hub75_update(void);  // Send frame to display
 void hub75_draw_sudoku_cell(uint8_t row, uint8_t col, color_t color, bool selected);
+void hub75_draw_sudoku_cell_with_ring(uint8_t row, uint8_t col, color_t color, bool selected, bool show_ring);
 
 #endif // HUB75_H

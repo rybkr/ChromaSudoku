@@ -1,19 +1,18 @@
 #ifndef NOPICO
 #include "pico/stdlib.h"
 #endif
-#include <stdio.h>
-#include "sudoku.h"
-#include "game.h"
 #include "audio.h"
 #include "display.h"
-//#include "display2.h"
+#include "game.h"
+#include "sudoku.h"
+#include <stdio.h>
+// #include "display2.h"
 #include "eeprom.h"
-#include "keypad.h"
-#include "hub75.h"
 #include "hardware/gpio.h"
+#include "hub75.h"
+#include "keypad.h"
 
-void pretty_print(sudoku_puzzle_t *puzzle)
-{
+void pretty_print(sudoku_puzzle_t *puzzle) {
     for (int r = 0; r < 9; ++r) {
         if (r % 3 == 0) {
             printf("+-------+-------+-------+\n");
@@ -34,8 +33,7 @@ void pretty_print(sudoku_puzzle_t *puzzle)
     printf("+-------+-------+-------+\n\n");
 }
 
-int main()
-{
+int main() {
 #ifndef NOPICO
     stdio_init_all();
 #endif
@@ -43,31 +41,28 @@ int main()
     printf("\n\n========= RP2350 Chroma Sudoku =========\n");
 #ifndef NOPICO
     printf("\nInitializing hardware...\n");
-    
+
     // Initialize all subsystems
     audio_init();
     display_init();
-    //display2_init();
-    display_show_splash(); //possible screen before game screen
-    //display2_show_splash();
-    //display2_show_instructions();
+    // display2_init();
+    display_show_splash(); // possible screen before game screen
+    // display2_show_splash();
+    // display2_show_instructions();
     eeprom_init();
     keypad_init();
     hub75_init();
-    
+
     printf("Hardware initialized\n");
     printf("Starting game...\n");
-    
-    // Initialize game
+
     game_init();
     game_new_puzzle(DIFFICULTY_HARD);
-    
-    // Main game loop
+
     for (;;) {
         game_update();
     }
 #else
-    // Test mode without hardware
     clock_t start = clock(), diff;
 
     sudoku_puzzle_t puzzle;
@@ -84,7 +79,8 @@ int main()
     pretty_print(&puzzle);
 
     diff = clock() - start;
-    printf("Puzzle generated in %lu milliseconds\n", diff * 1000 / CLOCKS_PER_SEC);
+    printf("Puzzle generated in %lu milliseconds\n",
+           diff * 1000 / CLOCKS_PER_SEC);
 #endif
 
     return 0;

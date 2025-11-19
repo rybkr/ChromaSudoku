@@ -1,6 +1,6 @@
-#include "pico/stdlib.h"
-#include "hardware/i2c.h"
 #include "eeprom.h"
+#include "hardware/i2c.h"
+#include "pico/stdlib.h"
 #include <string.h>
 
 // TODO: Document EEPROM Memory Layout
@@ -16,7 +16,7 @@
 #define I2C_EEPROM i2c0
 #define I2C_SDA_PIN 4
 #define I2C_SCL_PIN 5
-#define I2C_BAUDRATE 100000  // 100 kHz standard speed for EEPROM
+#define I2C_BAUDRATE 100000 // 100 kHz standard speed for EEPROM
 
 // Initialize I2C for EEPROM
 void eeprom_init(void) {
@@ -30,16 +30,18 @@ void eeprom_init(void) {
 // Read from EEPROM
 bool eeprom_read(uint16_t addr, uint8_t *data, uint16_t len) {
     uint8_t addr_bytes[2];
-    addr_bytes[0] = (addr >> 8) & 0xFF;  // High byte
-    addr_bytes[1] = addr & 0xFF;         // Low byte
+    addr_bytes[0] = (addr >> 8) & 0xFF; // High byte
+    addr_bytes[1] = addr & 0xFF;        // Low byte
 
     // Write address
-    if (i2c_write_blocking(I2C_EEPROM, EEPROM_I2C_ADDR, addr_bytes, 2, true) != 2) {
+    if (i2c_write_blocking(I2C_EEPROM, EEPROM_I2C_ADDR, addr_bytes, 2, true) !=
+        2) {
         return false;
     }
 
     // Read data
-    return i2c_read_blocking(I2C_EEPROM, EEPROM_I2C_ADDR, data, len, false) == len;
+    return i2c_read_blocking(I2C_EEPROM, EEPROM_I2C_ADDR, data, len, false) ==
+           len;
 }
 
 // Write to EEPROM (handles page boundaries)
@@ -63,8 +65,9 @@ bool eeprom_write(uint16_t addr, const uint8_t *data, uint16_t len) {
         }
 
         // Write to EEPROM
-        if (i2c_write_blocking(I2C_EEPROM, EEPROM_I2C_ADDR, write_buf, 2 + bytes_to_write, false) 
-            != (2 + bytes_to_write)) {
+        if (i2c_write_blocking(I2C_EEPROM, EEPROM_I2C_ADDR, write_buf,
+                               2 + bytes_to_write,
+                               false) != (2 + bytes_to_write)) {
             return false;
         }
 
@@ -102,7 +105,8 @@ bool eeprom_read_high_score(uint8_t index, high_score_t *score) {
 // LOGIC:
 // - Read all 10 high scores from EEPROM
 // - Compare the input score with each entry's score
-// - Return true if: (score > any existing score) OR (less than 10 scores stored)
+// - Return true if: (score > any existing score) OR (less than 10 scores
+// stored)
 // - Need to handle uninitialized EEPROM (all 0xFF bytes)
 // - Check if there's an empty slot (score == 0 and name[0] == '\0' or 0xFF)
 // TASK: Implement the function signature and logic
@@ -171,8 +175,9 @@ bool eeprom_insert_high_score(const high_score_t *score) {
         const uint32_t entry_score = entry->score;
         const uint8_t first_char = (uint8_t)entry->name[0];
 
-        const bool invalid = (entry_score == 0xFFFFFFFF && first_char == 0xFF) ||
-                             (entry_score == 0 && (first_char == 0 || first_char == 0xFF));
+        const bool invalid =
+            (entry_score == 0xFFFFFFFF && first_char == 0xFF) ||
+            (entry_score == 0 && (first_char == 0 || first_char == 0xFF));
         if (invalid) {
             continue;
         }

@@ -1,6 +1,8 @@
 #ifndef DISPLAY_H
 #define DISPLAY_H
 
+#include <stdint.h>
+
 // SPI display pin configuration - update these for your hardware
 extern const int SPI_DISP_SCK;
 extern const int SPI_DISP_CSn;

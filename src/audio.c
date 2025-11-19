@@ -17,7 +17,8 @@ static const int SLICE_AUDIO = (AUDIO_PWM_PIN >> 1U) & 7U;
 
 void init_wavetable(void) {
     for (int i = 0; i < AUDIO_WAVETABLE_SIZE; i++) {
-        wavetable[i] = (16383 * sin(2 * M_PI * i / AUDIO_WAVETABLE_SIZE)) + 16384;
+        wavetable[i] =
+            (16383 * sin(2 * M_PI * i / AUDIO_WAVETABLE_SIZE)) + 16384;
     }
 }
 
