@@ -140,13 +140,9 @@ void game_handle_keypad(void) {
                     uint8_t value =
                         get(&game_state.puzzle, game_state.cursor_row,
                             game_state.cursor_col);
-                    // TODO(rybkr): Check if this is a given cell (compare with
-                    // solution)
-                    if (value == 0) {
-                        set(&game_state.puzzle, game_state.cursor_row,
-                            game_state.cursor_col,
-                            game_state.selected_color + 1);
-                    }
+                    set(&game_state.puzzle, game_state.cursor_row,
+                        game_state.cursor_col,
+                        game_state.selected_color + 1);
                 }
                 break;
             default:

@@ -118,7 +118,7 @@ void hub75_update(void) {
 
             gpio_put(HUB75_OE_PIN, 0);
 
-            busy_wait_us(10 << bit_plane); // 10, 20, 40, 80 microseconds
+            busy_wait_us(20 << bit_plane);
             gpio_put(HUB75_OE_PIN, 1);
         }
     }
@@ -134,11 +134,6 @@ void hub75_draw_sudoku_cell(uint8_t row, uint8_t col, color_t color,
     uint8_t start_y = 2 + (row / 3) + (row * 3);
 
     color_t display_color = color;
-    if (selected) {
-        display_color.r = (display_color.r + 255) / 2;
-        display_color.g = (display_color.g + 255) / 2;
-        display_color.b = (display_color.b + 255) / 2;
-    }
 
     for (uint8_t dy = 0; dy < 2; dy++) {
         for (uint8_t dx = 0; dx < 2; dx++) {
