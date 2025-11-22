@@ -7,6 +7,7 @@
 #include "pico/stdlib.h"
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 typedef struct {
     uint8_t r, g, b;
@@ -14,32 +15,37 @@ typedef struct {
 
 static color_t number_to_color(uint8_t num);
 static void draw_sudoku_cell(uint8_t row, uint8_t col, color_t color);
-static void draw_cursor_ring(float row, float col, bool flash_on);
+static void draw_cursor_ring(float row, float col);
 static void get_cell_position(uint8_t row, uint8_t col, uint8_t *x, uint8_t *y);
 
-static float cursor_x = 4.f;
-static float cursor_y = 4.f;
-static const float lerp_speed = .3f;
-
 static game_state_t game_state;
+
+static float cursor_x = 4.0f;
+static float cursor_y = 4.0f;
+static const float lerp_speed = 0.2f;
+static const float snap_threshold = 0.05f;
+static uint32_t blink_start_time = 0;
+static bool cursor_moving = false;
 
 void game_init(void) {
     memset(&game_state, 0, sizeof(game_state_t));
     game_state.cursor_row = 4;
     game_state.cursor_col = 4;
-    cursor_x = 4.f;
-    cursor_y = 4.f;
+    cursor_x = 4.0f;
+    cursor_y = 4.0f;
     game_state.selected_color = 0;
     game_state.difficulty = DIFFICULTY_EASY;
     game_state.solved = false;
+    blink_start_time = time_us_32() / 1000000;
 }
 
 void game_new_puzzle(difficulty_t difficulty) {
     game_state.difficulty = difficulty;
     game_state.cursor_row = game_state.cursor_col = 4;
+    cursor_x = cursor_y = 4.0f;
     game_state.selected_color = 0;
     game_state.solved = false;
-    cursor_x = cursor_y = 4.f;
+    blink_start_time = time_us_32() / 1000000;
 
     int cells_to_remove;
     switch (difficulty) {
@@ -87,8 +93,20 @@ void game_update(void) {
     display_show_timer(game_state.elapsed_time);
 
     game_handle_keypad();
-    cursor_x += (game_state.cursor_col - cursor_x) * lerp_speed;
-    cursor_y += (game_state.cursor_row - cursor_y) * lerp_speed;
+
+    float dx = game_state.cursor_col - cursor_x;
+    float dy = game_state.cursor_row - cursor_y;
+
+    if (fabsf(dx) > snap_threshold || fabsf(dy) > snap_threshold) {
+        cursor_x += dx * lerp_speed;
+        cursor_y += dy * lerp_speed;
+        cursor_moving = true;
+        blink_start_time = current_time;
+    } else {
+        cursor_x = game_state.cursor_col;
+        cursor_y = game_state.cursor_row;
+        cursor_moving = false;
+    }
 
     if (!game_state.solved && game_check_solved()) {
         game_state.solved = true;
@@ -139,14 +157,8 @@ void game_handle_keypad(void) {
             case '8':
             case '9':
                 game_state.selected_color = key - '1';
-                {
-                    uint8_t value =
-                        get(&game_state.puzzle, game_state.cursor_row,
-                            game_state.cursor_col);
-                    set(&game_state.puzzle, game_state.cursor_row,
-                        game_state.cursor_col,
-                        game_state.selected_color + 1);
-                }
+                set(&game_state.puzzle, game_state.cursor_row,
+                    game_state.cursor_col, game_state.selected_color + 1);
                 break;
             default:
                 break;
@@ -171,8 +183,12 @@ void game_draw_board(void) {
     }
 
     uint32_t current_time = time_us_32() / 1000000;
-    bool flash_on = (current_time % 2) == 0;
-    draw_cursor_ring(cursor_y, cursor_x, flash_on);
+    uint32_t time_since_move = current_time - blink_start_time;
+    bool show_cursor = cursor_moving || ((time_since_move % 2) == 0);
+
+    if (show_cursor) {
+        draw_cursor_ring(cursor_y, cursor_x);
+    }
 
     hub75_refresh();
 }
@@ -189,6 +205,11 @@ static color_t number_to_color(uint8_t num) {
     return color;
 }
 
+static void get_cell_position(uint8_t row, uint8_t col, uint8_t *x, uint8_t *y) {
+    *x = 2 + (col / 3) + (col * 3);
+    *y = 2 + (row / 3) + (row * 3);
+}
+
 static void draw_sudoku_cell(uint8_t row, uint8_t col, color_t color) {
     uint8_t start_x, start_y;
     get_cell_position(row, col, &start_x, &start_y);
@@ -200,9 +221,7 @@ static void draw_sudoku_cell(uint8_t row, uint8_t col, color_t color) {
     }
 }
 
-static void draw_cursor_ring(float row, float col, bool flash_on) {
-    if (!flash_on) return;
-
+static void draw_cursor_ring(float row, float col) {
     float px = 2.0f + ((int)col / 3) + (col * 3.0f);
     float py = 2.0f + ((int)row / 3) + (row * 3.0f);
 
@@ -229,9 +248,4 @@ static void draw_cursor_ring(float row, float col, bool flash_on) {
             hub75_set_pixel(start_x + 2, y, 255, 255, 255);
         }
     }
-}
-
-static void get_cell_position(uint8_t row, uint8_t col, uint8_t *x, uint8_t *y) {
-    *x = 2 + (col / 3) + (col * 3);
-    *y = 2 + (row / 3) + (row * 3);
 }
