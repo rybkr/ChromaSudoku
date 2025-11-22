@@ -1,16 +1,14 @@
-#ifndef NOPICO
-#include "pico/stdlib.h"
-#endif
 #include "audio.h"
 #include "display.h"
 #include "game.h"
 #include "sudoku.h"
-#include <stdio.h>
-// #include "display2.h"
 #include "eeprom.h"
-#include "hardware/gpio.h"
 #include "hub75.h"
 #include "keypad.h"
+#include "pico/stdlib.h"
+#include "hardware/gpio.h"
+#include <stdio.h>
+#include <stdbool.h>
 
 void pretty_print(sudoku_puzzle_t *puzzle) {
     for (int r = 0; r < 9; ++r) {
@@ -34,54 +32,24 @@ void pretty_print(sudoku_puzzle_t *puzzle) {
 }
 
 int main() {
-#ifndef NOPICO
     stdio_init_all();
-#endif
 
     printf("\n\n========= RP2350 Chroma Sudoku =========\n");
-#ifndef NOPICO
     printf("\nInitializing hardware...\n");
 
-    // Initialize all subsystems
     audio_init();
     display_init();
-    // display2_init();
     display_show_splash(); // possible screen before game screen
-    // display2_show_splash();
-    // display2_show_instructions();
     eeprom_init();
     keypad_init();
     hub75_init();
 
-    printf("Hardware initialized\n");
-    printf("Starting game...\n");
-
     game_init();
     game_new_puzzle(DIFFICULTY_HARD);
 
-    for (;;) {
+    while (true) {
         game_update();
     }
-#else
-    clock_t start = clock(), diff;
-
-    sudoku_puzzle_t puzzle;
-    clear(&puzzle);
-    pretty_print(&puzzle);
-
-    fill_diagonal_boxes(&puzzle);
-    pretty_print(&puzzle);
-
-    solve_puzzle(&puzzle);
-    pretty_print(&puzzle);
-
-    create_puzzle_from_solution(&puzzle, 51);
-    pretty_print(&puzzle);
-
-    diff = clock() - start;
-    printf("Puzzle generated in %lu milliseconds\n",
-           diff * 1000 / CLOCKS_PER_SEC);
-#endif
 
     return 0;
 }

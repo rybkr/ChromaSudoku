@@ -1,191 +1,107 @@
 #include "hub75.h"
-#include "hardware/dma.h"
-#include "hardware/gpio.h"
+#include "hub75.pio.h"
 #include "hardware/pio.h"
+#include "hardware/gpio.h"
 #include "pico/stdlib.h"
-#include <stdint.h>
 
-#define HUB75_R0_PIN 9
-#define HUB75_G0_PIN 10
-#define HUB75_B0_PIN 8
-#define HUB75_R1_PIN 7
-#define HUB75_G1_PIN 12
-#define HUB75_B1_PIN 6
-#define HUB75_CLK_PIN 19
-#define HUB75_LAT_PIN 16
-#define HUB75_OE_PIN 18
-#define HUB75_A_PIN 21
-#define HUB75_B_PIN 14
-#define HUB75_C_PIN 20
-#define HUB75_D_PIN 15
+#define HUB75_R1_PIN 6U
+#define HUB75_G1_PIN 7U
+#define HUB75_B1_PIN 8U
+#define HUB75_R2_PIN 9U
+#define HUB75_G2_PIN 10U
+#define HUB75_B2_PIN 11U
 
-static color_t frame_buffer[HUB75_NUM_PIXELS];
+#define HUB75_A_PIN 14U
+#define HUB75_B_PIN 15U
+#define HUB75_C_PIN 16U
+#define HUB75_D_PIN 18U
 
-void hub75_init(void) {
-    gpio_init(HUB75_LAT_PIN);
-    gpio_set_dir(HUB75_LAT_PIN, GPIO_OUT);
-    gpio_put(HUB75_LAT_PIN, 0);
+#define HUB75_CLK_PIN 12U
+#define HUB75_LAT_PIN 19U
+#define HUB75_OE_PIN 20U
 
-    gpio_init(HUB75_OE_PIN);
-    gpio_set_dir(HUB75_OE_PIN, GPIO_OUT);
-    gpio_put(HUB75_OE_PIN, 1);
+static PIO pio = pio0;
+static unsigned sm;
+static uint8_t framebuffer[HUB75_PANEL_HEIGHT][HUB75_PANEL_WIDTH][3];
 
-    gpio_init(HUB75_A_PIN);
-    gpio_set_dir(HUB75_A_PIN, GPIO_OUT);
-    gpio_init(HUB75_B_PIN);
-    gpio_set_dir(HUB75_B_PIN, GPIO_OUT);
-    gpio_init(HUB75_C_PIN);
-    gpio_set_dir(HUB75_C_PIN, GPIO_OUT);
-    gpio_init(HUB75_D_PIN);
-    gpio_set_dir(HUB75_D_PIN, GPIO_OUT);
-
-    gpio_init(HUB75_R0_PIN);
-    gpio_set_dir(HUB75_R0_PIN, GPIO_OUT);
-    gpio_init(HUB75_G0_PIN);
-    gpio_set_dir(HUB75_G0_PIN, GPIO_OUT);
-    gpio_init(HUB75_B0_PIN);
-    gpio_set_dir(HUB75_B0_PIN, GPIO_OUT);
-    gpio_init(HUB75_R1_PIN);
-    gpio_set_dir(HUB75_R1_PIN, GPIO_OUT);
-    gpio_init(HUB75_G1_PIN);
-    gpio_set_dir(HUB75_G1_PIN, GPIO_OUT);
-    gpio_init(HUB75_B1_PIN);
-    gpio_set_dir(HUB75_B1_PIN, GPIO_OUT);
-    gpio_init(HUB75_CLK_PIN);
-    gpio_set_dir(HUB75_CLK_PIN, GPIO_OUT);
-
-    hub75_clear();
+static void set_row_address(uint8_t row) {
+    gpio_put(HUB75_A_PIN, row & 0x1U);
+    gpio_put(HUB75_B_PIN, row & 0x2U);
+    gpio_put(HUB75_C_PIN, row & 0x4U);
+    gpio_put(HUB75_D_PIN, row & 0x8U);
 }
 
-void hub75_set_pixel(uint8_t x, uint8_t y, color_t color) {
-    if (x >= HUB75_WIDTH || y >= HUB75_HEIGHT) {
-        return;
+static void refresh_row(uint8_t row, uint8_t bit) {
+    uint8_t row_top = row;
+    uint8_t row_bot = row + (HUB75_PANEL_HEIGHT / 2);
+    uint8_t mask = 1U << (8 - HUB75_COLOR_DEPTH + bit);
+
+    gpio_put(HUB75_OE_PIN, 1);
+
+    for (int x = 0; x < HUB75_PANEL_WIDTH; ++x) {
+        unsigned pixel =
+            ((framebuffer[row_top][x][0] & mask) ? (1U << 0) : 0) |
+            ((framebuffer[row_top][x][1] & mask) ? (1U << 1) : 0) |
+            ((framebuffer[row_top][x][2] & mask) ? (1U << 2) : 0) |
+            ((framebuffer[row_bot][x][0] & mask) ? (1U << 3) : 0) |
+            ((framebuffer[row_bot][x][1] & mask) ? (1U << 4) : 0) |
+            ((framebuffer[row_bot][x][2] & mask) ? (1U << 5) : 0);
+        pio_sm_put_blocking(pio, sm, pixel);
     }
-    frame_buffer[y * HUB75_WIDTH + x] = color;
+
+    set_row_address(row);
+
+    gpio_put(HUB75_LAT_PIN, 1);
+    gpio_put(HUB75_LAT_PIN, 0);
+
+    gpio_put(HUB75_OE_PIN, 0);
+    sleep_us(1U << bit);
+    gpio_put(HUB75_OE_PIN, 1);
+}
+
+void hub75_refresh(void) {
+    for (uint8_t bit = 0; bit < HUB75_COLOR_DEPTH; ++bit) {
+        for (uint8_t row = 0; row <  HUB75_PANEL_HEIGHT / 2; ++row) {
+            refresh_row(row, bit);
+        }
+    }
+}
+
+void hub75_set_pixel(uint8_t x, uint8_t y, uint8_t r, uint8_t g, uint8_t b) {
+    if (x < HUB75_PANEL_WIDTH && y < HUB75_PANEL_HEIGHT) {
+        framebuffer[y][x][0] = r;
+        framebuffer[y][x][1] = g;
+        framebuffer[y][x][2] = b;
+    }
 }
 
 void hub75_clear(void) {
-    color_t black = {0, 0, 0};
-    for (int i = 0; i < HUB75_NUM_PIXELS; i++) {
-        frame_buffer[i] = black;
-    }
-}
-
-void hub75_update(void) {
-#define BIT_DEPTH 4
-#define NUM_ROWS (HUB75_HEIGHT / 2) // 16 rows for 32x32 panel
-
-    for (uint8_t bit_plane = 0; bit_plane < BIT_DEPTH; bit_plane++) {
-        uint8_t bit_mask = 1 << bit_plane;
-
-        for (uint8_t row = 0; row < NUM_ROWS; row++) {
-            gpio_put(HUB75_OE_PIN, 1);
-
-            gpio_put(HUB75_A_PIN, (row >> 0) & 1);
-            gpio_put(HUB75_B_PIN, (row >> 1) & 1);
-            gpio_put(HUB75_C_PIN, (row >> 2) & 1);
-            gpio_put(HUB75_D_PIN, (row >> 3) & 1);
-
-            for (uint8_t col = 0; col < HUB75_WIDTH; col++) {
-                color_t top_pixel = frame_buffer[row * HUB75_WIDTH + col];
-                color_t bottom_pixel =
-                    frame_buffer[(row + NUM_ROWS) * HUB75_WIDTH + col];
-
-                uint8_t r0 = (top_pixel.r & bit_mask) ? 1 : 0;
-                uint8_t g0 = (top_pixel.g & bit_mask) ? 1 : 0;
-                uint8_t b0 = (top_pixel.b & bit_mask) ? 1 : 0;
-                uint8_t r1 = (bottom_pixel.r & bit_mask) ? 1 : 0;
-                uint8_t g1 = (bottom_pixel.g & bit_mask) ? 1 : 0;
-                uint8_t b1 = (bottom_pixel.b & bit_mask) ? 1 : 0;
-
-                gpio_put(HUB75_R0_PIN, r0);
-                gpio_put(HUB75_G0_PIN, g0);
-                gpio_put(HUB75_B0_PIN, b0);
-                gpio_put(HUB75_R1_PIN, r1);
-                gpio_put(HUB75_G1_PIN, g1);
-                gpio_put(HUB75_B1_PIN, b1);
-
-                gpio_put(HUB75_CLK_PIN, 1);
-                sleep_us(1); // Short delay
-                gpio_put(HUB75_CLK_PIN, 0);
-                sleep_us(1); // Short delay
-            }
-
-            gpio_put(HUB75_LAT_PIN, 1);
-            sleep_us(1);
-            gpio_put(HUB75_LAT_PIN, 0);
-            sleep_us(1);
-
-            gpio_put(HUB75_OE_PIN, 0);
-
-            busy_wait_us(20 << bit_plane);
-            gpio_put(HUB75_OE_PIN, 1);
+    for (int y = 0; y < HUB75_PANEL_HEIGHT; y++) {
+        for (int x = 0; x < HUB75_PANEL_WIDTH; x++) {
+            framebuffer[y][x][0] = 0;
+            framebuffer[y][x][1] = 0;
+            framebuffer[y][x][2] = 0;
         }
     }
 }
 
-void hub75_draw_sudoku_cell(uint8_t row, uint8_t col, color_t color,
-                            bool selected) {
-    // Each Sudoku cell is 2x2 LEDs
-    // Position calculation: 2 pixels per cell + 1 pixel gap + 2 pixel border
-    // Total: 2*9 + 1*6 + 2*2 = 18 + 8 + 4 = 28, leaving 2 pixels for margin
-
-    uint8_t start_x = 2 + (col / 3) + (col * 3);
-    uint8_t start_y = 2 + (row / 3) + (row * 3);
-
-    color_t display_color = color;
-
-    for (uint8_t dy = 0; dy < 2; dy++) {
-        for (uint8_t dx = 0; dx < 2; dx++) {
-            hub75_set_pixel(start_x + dx, start_y + dy, display_color);
-        }
+void hub75_init(void) {
+    const uint8_t ctrl_pins[] = {
+        HUB75_A_PIN, HUB75_B_PIN, HUB75_C_PIN, HUB75_D_PIN,
+        HUB75_LAT_PIN,
+        HUB75_OE_PIN,
+    };
+    for (int i = 0; i < sizeof(ctrl_pins); i++) {
+        gpio_init(ctrl_pins[i]);
+        gpio_set_dir(ctrl_pins[i], GPIO_OUT);
     }
-}
+    
+    gpio_put(HUB75_OE_PIN, 1);
+    gpio_put(HUB75_LAT_PIN, 0);
 
-void hub75_draw_sudoku_cell_with_ring(uint8_t row, uint8_t col, color_t color,
-                                      bool selected, bool show_ring) {
-    // Draw the cell first
-    hub75_draw_sudoku_cell(row, col, color, selected);
-
-    // Draw white ring around selected cell if show_ring is true
-    if (selected && show_ring) {
-        uint8_t start_x = 2 + (col / 3) + (col * 3);
-        uint8_t start_y = 2 + (row / 3) + (row * 3);
-
-        color_t white = {255, 255, 255};
-
-        // Draw ring around the 2x2 cell (from start_x-1 to start_x+2, start_y-1
-        // to start_y+2) Top border (4 pixels wide)
-        if (start_y > 0) {
-            for (int8_t x = start_x - 1; x <= start_x + 2; x++) {
-                if (x >= 0 && x < HUB75_WIDTH) {
-                    hub75_set_pixel(x, start_y - 1, white);
-                }
-            }
-        }
-        // Bottom border (4 pixels wide)
-        if (start_y + 2 < HUB75_HEIGHT) {
-            for (int8_t x = start_x - 1; x <= start_x + 2; x++) {
-                if (x >= 0 && x < HUB75_WIDTH) {
-                    hub75_set_pixel(x, start_y + 2, white);
-                }
-            }
-        }
-        // Left border (2 pixels tall, excluding corners already drawn)
-        if (start_x > 0) {
-            for (uint8_t y = start_y; y <= start_y + 1; y++) {
-                if (y < HUB75_HEIGHT) {
-                    hub75_set_pixel(start_x - 1, y, white);
-                }
-            }
-        }
-        // Right border (2 pixels tall, excluding corners already drawn)
-        if (start_x + 2 < HUB75_WIDTH) {
-            for (uint8_t y = start_y; y <= start_y + 1; y++) {
-                if (y < HUB75_HEIGHT) {
-                    hub75_set_pixel(start_x + 2, y, white);
-                }
-            }
-        }
-    }
+    unsigned offset = pio_add_program(pio, &hub75_program);
+    sm = pio_claim_unused_sm(pio, true);
+    hub75_program_init(pio, sm, offset, HUB75_R1_PIN);
+    set_row_address(0);
+    hub75_clear();
 }

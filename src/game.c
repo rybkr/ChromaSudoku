@@ -8,19 +8,15 @@
 #include <stdio.h>
 #include <string.h>
 
-static game_state_t game_state;
+typedef struct {
+    uint8_t r, g, b;
+} color_t;
 
-static color_t number_to_color(uint8_t num) {
-    if (num == 0 || num > 9) {
-        color_t black = {0, 0, 0};
-        return black;
-    }
-    color_t color;
-    color.r = color_map[num - 1].r;
-    color.g = color_map[num - 1].g;
-    color.b = color_map[num - 1].b;
-    return color;
-}
+static color_t number_to_color(uint8_t num);
+static void draw_sudoku_cell(uint8_t row, uint8_t col, color_t color, bool selected);
+static void draw_sudoku_cell_with_ring(uint8_t row, uint8_t col, color_t color, bool selected, bool flash_on);
+
+static game_state_t game_state;
 
 void game_init(void) {
     memset(&game_state, 0, sizeof(game_state_t));
@@ -33,28 +29,26 @@ void game_init(void) {
 
 void game_new_puzzle(difficulty_t difficulty) {
     game_state.difficulty = difficulty;
-    game_state.cursor_row = 4;
-    game_state.cursor_col = 4;
+    game_state.cursor_row = game_state.cursor_col = 4;
     game_state.selected_color = 0;
     game_state.solved = false;
 
     int cells_to_remove;
     switch (difficulty) {
     case DIFFICULTY_EASY:
-        cells_to_remove = 30;
+        cells_to_remove = 36;
         break;
     case DIFFICULTY_MEDIUM:
-        cells_to_remove = 40;
+        cells_to_remove = 42;
         break;
     case DIFFICULTY_HARD:
-        cells_to_remove = 51;
+        cells_to_remove = 50;
         break;
     default:
-        cells_to_remove = 30;
+        cells_to_remove = 36;
     }
 
     clear(&game_state.puzzle);
-    fill_diagonal_boxes(&game_state.puzzle);
     solve_puzzle(&game_state.puzzle);
     create_puzzle_from_solution(&game_state.puzzle, cells_to_remove);
 
@@ -89,7 +83,6 @@ void game_update(void) {
     if (!game_state.solved && game_check_solved()) {
         game_state.solved = true;
         audio_play_victory_tune();
-        // TODO(rybkr): Save high score if applicable
     }
 
     game_draw_board();
@@ -146,19 +139,18 @@ void game_handle_keypad(void) {
                 }
                 break;
             default:
-                // Other keys not handled yet
                 break;
             }
         }
     }
 }
 
-bool game_check_solved(void) { return is_valid(&game_state.puzzle); }
+bool game_check_solved(void) {
+    return is_valid(&game_state.puzzle);
+}
 
 void game_draw_board(void) {
     hub75_clear();
-
-    // Calculate flash state: toggle every 1 second (1 Hz)
     uint32_t current_time = time_us_32() / 1000000;
     bool flash_on = (current_time % 2) == 0;
 
@@ -167,9 +159,70 @@ void game_draw_board(void) {
             uint8_t value = get(&game_state.puzzle, row, col);
             color_t color = number_to_color(value);
             bool selected = (row == game_state.cursor_row && col == game_state.cursor_col);
-            hub75_draw_sudoku_cell_with_ring(row, col, color, selected, flash_on);
+            draw_sudoku_cell_with_ring(row, col, color, selected, flash_on);
         }
     }
+    hub75_refresh();
+}
 
-    hub75_update();
+static color_t number_to_color(uint8_t num) {
+    if (num == 0 || num > 9) {
+        color_t black = {0, 0, 0};
+        return black;
+    }
+    color_t color;
+    color.r = color_map[num - 1].r;
+    color.g = color_map[num - 1].g;
+    color.b = color_map[num - 1].b;
+    return color;
+}
+
+static void draw_sudoku_cell(uint8_t row, uint8_t col, color_t color, bool selected) {
+    uint8_t start_x = 2 + (col / 3) + (col * 3);
+    uint8_t start_y = 2 + (row / 3) + (row * 3);
+
+    for (uint8_t dy = 0; dy < 2; ++dy) for (uint8_t dx = 0; dx < 2; ++dx) {
+        hub75_set_pixel(start_x + dx, start_y + dy, color.r, color.g, color.b);
+    }
+}
+
+static void draw_sudoku_cell_with_ring(uint8_t row, uint8_t col, color_t color, bool selected, bool flash_on) {
+    draw_sudoku_cell(row, col, color, selected);
+
+    if (selected && flash_on) {
+        uint8_t start_x = 2 + (col / 3) + (col * 3);
+        uint8_t start_y = 2 + (row / 3) + (row * 3);
+        color_t white = {255, 255, 255};
+
+        if (start_y > 0) {
+            if (start_y > 0) {
+                for (int8_t x = start_x - 1; x <= start_x + 2; x++) {
+                    if (x >= 0 && x < HUB75_PANEL_WIDTH) {
+                        hub75_set_pixel(x, start_y - 1, white.r, white.g, white.b);
+                    }
+                }
+            }
+            if (start_y + 2 < HUB75_PANEL_HEIGHT) {
+                for (int8_t x = start_x - 1; x <= start_x + 2; x++) {
+                    if (x >= 0 && x < HUB75_PANEL_WIDTH) {
+                        hub75_set_pixel(x, start_y + 2, white.r, white.g, white.b);
+                    }
+                }
+            }
+            if (start_x > 0) {
+                for (uint8_t y = start_y; y <= start_y + 1; y++) {
+                    if (y < HUB75_PANEL_HEIGHT) {
+                        hub75_set_pixel(start_x - 1, y, white.r, white.g, white.b);
+                    }
+                }
+            }
+            if (start_x + 2 < HUB75_PANEL_WIDTH) {
+                for (uint8_t y = start_y; y <= start_y + 1; y++) {
+                    if (y < HUB75_PANEL_HEIGHT) {
+                        hub75_set_pixel(start_x + 2, y, white.r, white.g, white.b);
+                    }
+                }
+            }
+        }
+    }
 }

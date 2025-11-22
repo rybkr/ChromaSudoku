@@ -1,23 +1,21 @@
-#ifndef GAME_H
-#define GAME_H
+#ifndef GAME_H_CB9C1A5B6910FB2F
+#define GAME_H_CB9C1A5B6910FB2F
 
 #include "sudoku.h"
 #include <stdbool.h>
 #include <stdint.h>
 
-// Game difficulty levels
 typedef enum {
     DIFFICULTY_EASY = 1,
     DIFFICULTY_MEDIUM = 2,
     DIFFICULTY_HARD = 3
 } difficulty_t;
 
-// Game state
 typedef struct {
     sudoku_puzzle_t puzzle;
     uint8_t cursor_row;
     uint8_t cursor_col;
-    uint8_t selected_color; // 0-8 for 9 colors
+    uint8_t selected_color;
     difficulty_t difficulty;
     uint32_t start_time;
     uint32_t elapsed_time;
@@ -41,12 +39,12 @@ static const struct {
     {139, 69, 19},   // Brown - 9
 };
 
-// Game functions
-void game_init(void);
+void game_init();
 void game_new_puzzle(difficulty_t difficulty);
-void game_update(void); // Main game loop update
-void game_handle_keypad(void);
-bool game_check_solved(void);
-void game_draw_board(void);
+void game_update();
 
-#endif // GAME_H
+void game_handle_keypad();
+bool game_check_solved();
+void game_draw_board();
+
+#endif // GAME_H_CB9C1A5B6910FB2F
