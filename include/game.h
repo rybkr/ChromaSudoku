@@ -22,21 +22,20 @@ typedef struct {
     bool solved;
 } game_state_t;
 
-// Color mapping (9 distinct colors for 9 Sudoku numbers)
 static const struct {
     uint8_t r;
     uint8_t g;
     uint8_t b;
 } color_map[9] = {
-    {220, 20, 60},   // Red - 1
-    {24, 139, 34},   // Green - 2
-    {30, 144, 255},  // Blue - 3
-    {255, 215, 0},   // Yellow - 4
-    {255, 0, 144},   // Magenta - 5
-    {0, 206, 209},   // Cyan - 6
-    {255, 140, 0},   // Orange - 7
-    {138, 43, 226},  // Purple - 8
-    {139, 69, 19},   // Brown - 9
+    {255,   0,   0},   // 1 - Red
+    {  0, 255,   0},   // 2 - Green
+    {  0,   0, 255},   // 3 - Blue
+    {255, 255,   0},   // 4 - Yellow
+    {255,   0, 255},   // 5 - Magenta
+    {  0, 255, 255},   // 6 - Cyan
+    {255,  64,   0},   // 7 - Orange
+    { 64,   0, 255},   // 8 - Purple
+    {255, 255, 255},   // 9 - White
 };
 
 void game_init();

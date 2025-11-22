@@ -7,7 +7,9 @@
 // Keypad functions
 void keypad_init(void);
 uint16_t keypad_get_event(void);
+
 char keypad_get_char(uint16_t event);
 bool keypad_is_pressed(uint16_t event);
+bool keypad_is_key_held(char key);
 
 #endif // KEYPAD_H

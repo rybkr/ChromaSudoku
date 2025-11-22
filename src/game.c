@@ -27,6 +27,8 @@ static const float snap_threshold = 0.05f;
 static uint32_t blink_start_time = 0;
 static bool cursor_moving = false;
 
+static bool show_help = false;
+
 void game_init(void) {
     memset(&game_state, 0, sizeof(game_state_t));
     game_state.cursor_row = 4;
@@ -117,6 +119,8 @@ void game_update(void) {
 }
 
 void game_handle_keypad(void) {
+    show_help = keypad_is_key_held('A');
+
     while (1) {
         uint16_t event = keypad_get_event();
         if (event == 0) {
@@ -167,11 +171,61 @@ void game_handle_keypad(void) {
     }
 }
 
+static void draw_digit(uint8_t digit, uint8_t start_x, uint8_t start_y, uint8_t r, uint8_t g, uint8_t b) {
+    static const uint8_t font[9][7] = {
+        {0x0C, 0x1C, 0x0C, 0x0C, 0x0C, 0x0C, 0x1E}, // 1
+        {0x1E, 0x33, 0x03, 0x0E, 0x18, 0x30, 0x3F}, // 2
+        {0x1E, 0x33, 0x03, 0x0E, 0x03, 0x33, 0x1E}, // 3
+        {0x06, 0x0E, 0x16, 0x26, 0x3F, 0x06, 0x06}, // 4
+        {0x3F, 0x30, 0x3E, 0x03, 0x03, 0x33, 0x1E}, // 5
+        {0x1E, 0x30, 0x30, 0x3E, 0x33, 0x33, 0x1E}, // 6
+        {0x3F, 0x03, 0x06, 0x0C, 0x18, 0x18, 0x18}, // 7
+        {0x1E, 0x33, 0x33, 0x1E, 0x33, 0x33, 0x1E}, // 8
+        {0x1E, 0x33, 0x33, 0x1F, 0x03, 0x03, 0x1E}, // 9
+    };
+
+    if (digit < 1 || digit > 9) return;
+
+    for (uint8_t row = 0; row < 7; row++) {
+        uint8_t bits = font[digit - 1][row];
+        for (uint8_t col = 0; col < 6; col++) {
+            if (bits & (0x20 >> col)) {
+                uint8_t px = start_x + row;
+                uint8_t py = start_y + (5 - col);
+                hub75_set_pixel(px, py, r, g, b);
+            }
+        }
+    }
+}
+
+static void draw_help_screen(void) {
+    hub75_clear();
+
+    static const uint8_t digit_order[9] = {3, 6, 9, 2, 5, 8, 1, 4, 7};
+
+    for (uint8_t i = 0; i < 9; i++) {
+        uint8_t row = i / 3;
+        uint8_t col = i % 3;
+        uint8_t start_x = 2 + col * 10;
+        uint8_t start_y = 2 + row * 10;
+
+        uint8_t digit = digit_order[i];
+        draw_digit(digit, start_x, start_y,
+                   color_map[digit - 1].r, color_map[digit - 1].g, color_map[digit - 1].b);
+    }
+}
+
 bool game_check_solved(void) {
     return is_valid(&game_state.puzzle);
 }
 
 void game_draw_board(void) {
+    if (show_help) {
+        draw_help_screen();
+        hub75_refresh();
+        return;
+    }
+
     hub75_clear();
 
     for (uint8_t row = 0; row < 9; row++) {

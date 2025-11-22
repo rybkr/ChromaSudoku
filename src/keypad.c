@@ -222,3 +222,12 @@ uint16_t keypad_get_event(void) { return key_pop(); }
 char keypad_get_char(uint16_t event) { return (char)(event & 0xFF); }
 
 bool keypad_is_pressed(uint16_t event) { return (event & 0x100) != 0; }
+
+bool keypad_is_key_held(char key) {
+    for (int i = 0; i < 16; i++) {
+        if (keymap[i] == key && state[i]) {
+            return true;
+        }
+    }
+    return false;
+}
