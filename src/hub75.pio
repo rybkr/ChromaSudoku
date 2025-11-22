@@ -19,7 +19,7 @@
         sm_config_set_sideset_pins(&c, base_pin + 6);
         sm_config_set_out_shift(&c, true, true, 6);
         sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
-        sm_config_set_clkdiv(&c, 4.f);
+        sm_config_set_clkdiv(&c, 1);
 
         pio_sm_init(pio, sm, offset, &c);
         pio_sm_set_enabled(pio, sm, true);

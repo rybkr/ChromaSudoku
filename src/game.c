@@ -13,15 +13,22 @@ typedef struct {
 } color_t;
 
 static color_t number_to_color(uint8_t num);
-static void draw_sudoku_cell(uint8_t row, uint8_t col, color_t color, bool selected);
-static void draw_sudoku_cell_with_ring(uint8_t row, uint8_t col, color_t color, bool selected, bool flash_on);
+static void draw_sudoku_cell(uint8_t row, uint8_t col, color_t color);
+static void draw_cursor_ring(float row, float col, bool flash_on);
+static void get_cell_position(uint8_t row, uint8_t col, uint8_t *x, uint8_t *y);
+
+static float cursor_x = 4.f;
+static float cursor_y = 4.f;
+static const float lerp_speed = .3f;
 
 static game_state_t game_state;
 
 void game_init(void) {
     memset(&game_state, 0, sizeof(game_state_t));
-    game_state.cursor_row = 0;
-    game_state.cursor_col = 0;
+    game_state.cursor_row = 4;
+    game_state.cursor_col = 4;
+    cursor_x = 4.f;
+    cursor_y = 4.f;
     game_state.selected_color = 0;
     game_state.difficulty = DIFFICULTY_EASY;
     game_state.solved = false;
@@ -32,6 +39,7 @@ void game_new_puzzle(difficulty_t difficulty) {
     game_state.cursor_row = game_state.cursor_col = 4;
     game_state.selected_color = 0;
     game_state.solved = false;
+    cursor_x = cursor_y = 4.f;
 
     int cells_to_remove;
     switch (difficulty) {
@@ -79,6 +87,8 @@ void game_update(void) {
     display_show_timer(game_state.elapsed_time);
 
     game_handle_keypad();
+    cursor_x += (game_state.cursor_col - cursor_x) * lerp_speed;
+    cursor_y += (game_state.cursor_row - cursor_y) * lerp_speed;
 
     if (!game_state.solved && game_check_solved()) {
         game_state.solved = true;
@@ -151,17 +161,19 @@ bool game_check_solved(void) {
 
 void game_draw_board(void) {
     hub75_clear();
-    uint32_t current_time = time_us_32() / 1000000;
-    bool flash_on = (current_time % 2) == 0;
 
     for (uint8_t row = 0; row < 9; row++) {
         for (uint8_t col = 0; col < 9; col++) {
             uint8_t value = get(&game_state.puzzle, row, col);
             color_t color = number_to_color(value);
-            bool selected = (row == game_state.cursor_row && col == game_state.cursor_col);
-            draw_sudoku_cell_with_ring(row, col, color, selected, flash_on);
+            draw_sudoku_cell(row, col, color);
         }
     }
+
+    uint32_t current_time = time_us_32() / 1000000;
+    bool flash_on = (current_time % 2) == 0;
+    draw_cursor_ring(cursor_y, cursor_x, flash_on);
+
     hub75_refresh();
 }
 
@@ -177,52 +189,49 @@ static color_t number_to_color(uint8_t num) {
     return color;
 }
 
-static void draw_sudoku_cell(uint8_t row, uint8_t col, color_t color, bool selected) {
-    uint8_t start_x = 2 + (col / 3) + (col * 3);
-    uint8_t start_y = 2 + (row / 3) + (row * 3);
+static void draw_sudoku_cell(uint8_t row, uint8_t col, color_t color) {
+    uint8_t start_x, start_y;
+    get_cell_position(row, col, &start_x, &start_y);
 
-    for (uint8_t dy = 0; dy < 2; ++dy) for (uint8_t dx = 0; dx < 2; ++dx) {
-        hub75_set_pixel(start_x + dx, start_y + dy, color.r, color.g, color.b);
+    for (uint8_t dy = 0; dy < 2; ++dy) {
+        for (uint8_t dx = 0; dx < 2; ++dx) {
+            hub75_set_pixel(start_x + dx, start_y + dy, color.r, color.g, color.b);
+        }
     }
 }
 
-static void draw_sudoku_cell_with_ring(uint8_t row, uint8_t col, color_t color, bool selected, bool flash_on) {
-    draw_sudoku_cell(row, col, color, selected);
+static void draw_cursor_ring(float row, float col, bool flash_on) {
+    if (!flash_on) return;
 
-    if (selected && flash_on) {
-        uint8_t start_x = 2 + (col / 3) + (col * 3);
-        uint8_t start_y = 2 + (row / 3) + (row * 3);
-        color_t white = {255, 255, 255};
+    float px = 2.0f + ((int)col / 3) + (col * 3.0f);
+    float py = 2.0f + ((int)row / 3) + (row * 3.0f);
 
-        if (start_y > 0) {
-            if (start_y > 0) {
-                for (int8_t x = start_x - 1; x <= start_x + 2; x++) {
-                    if (x >= 0 && x < HUB75_PANEL_WIDTH) {
-                        hub75_set_pixel(x, start_y - 1, white.r, white.g, white.b);
-                    }
-                }
-            }
-            if (start_y + 2 < HUB75_PANEL_HEIGHT) {
-                for (int8_t x = start_x - 1; x <= start_x + 2; x++) {
-                    if (x >= 0 && x < HUB75_PANEL_WIDTH) {
-                        hub75_set_pixel(x, start_y + 2, white.r, white.g, white.b);
-                    }
-                }
-            }
-            if (start_x > 0) {
-                for (uint8_t y = start_y; y <= start_y + 1; y++) {
-                    if (y < HUB75_PANEL_HEIGHT) {
-                        hub75_set_pixel(start_x - 1, y, white.r, white.g, white.b);
-                    }
-                }
-            }
-            if (start_x + 2 < HUB75_PANEL_WIDTH) {
-                for (uint8_t y = start_y; y <= start_y + 1; y++) {
-                    if (y < HUB75_PANEL_HEIGHT) {
-                        hub75_set_pixel(start_x + 2, y, white.r, white.g, white.b);
-                    }
-                }
-            }
+    int16_t start_x = (int16_t)(px + 0.5f);
+    int16_t start_y = (int16_t)(py + 0.5f);
+
+    for (int16_t x = start_x - 1; x <= start_x + 2; x++) {
+        if (x >= 0 && x < HUB75_PANEL_WIDTH && start_y - 1 >= 0) {
+            hub75_set_pixel(x, start_y - 1, 255, 255, 255);
         }
     }
+    for (int16_t x = start_x - 1; x <= start_x + 2; x++) {
+        if (x >= 0 && x < HUB75_PANEL_WIDTH && start_y + 2 < HUB75_PANEL_HEIGHT) {
+            hub75_set_pixel(x, start_y + 2, 255, 255, 255);
+        }
+    }
+    for (int16_t y = start_y; y <= start_y + 1; y++) {
+        if (start_x - 1 >= 0 && y >= 0 && y < HUB75_PANEL_HEIGHT) {
+            hub75_set_pixel(start_x - 1, y, 255, 255, 255);
+        }
+    }
+    for (int16_t y = start_y; y <= start_y + 1; y++) {
+        if (start_x + 2 < HUB75_PANEL_WIDTH && y >= 0 && y < HUB75_PANEL_HEIGHT) {
+            hub75_set_pixel(start_x + 2, y, 255, 255, 255);
+        }
+    }
+}
+
+static void get_cell_position(uint8_t row, uint8_t col, uint8_t *x, uint8_t *y) {
+    *x = 2 + (col / 3) + (col * 3);
+    *y = 2 + (row / 3) + (row * 3);
 }

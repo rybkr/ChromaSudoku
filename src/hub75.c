@@ -24,6 +24,13 @@ static PIO pio = pio0;
 static unsigned sm;
 static uint8_t framebuffer[HUB75_PANEL_HEIGHT][HUB75_PANEL_WIDTH][3];
 
+static float cursor_x = 0;
+static float cursor_y = 0;
+static float target_x = 0;
+static float target_y = 0;
+
+static const float lerp_speed = .3f;
+
 static void set_row_address(uint8_t row) {
     gpio_put(HUB75_A_PIN, row & 0x1U);
     gpio_put(HUB75_B_PIN, row & 0x2U);
@@ -46,16 +53,19 @@ static void refresh_row(uint8_t row, uint8_t bit) {
             ((framebuffer[row_bot][x][0] & mask) ? (1U << 3) : 0) |
             ((framebuffer[row_bot][x][1] & mask) ? (1U << 4) : 0) |
             ((framebuffer[row_bot][x][2] & mask) ? (1U << 5) : 0);
-        pio_sm_put_blocking(pio, sm, pixel);
+        pio->txf[sm] = pixel; 
+    }
+
+    while (!pio_sm_is_tx_fifo_empty(pio, sm)) {
+        tight_loop_contents();
     }
 
     set_row_address(row);
-
     gpio_put(HUB75_LAT_PIN, 1);
     gpio_put(HUB75_LAT_PIN, 0);
 
     gpio_put(HUB75_OE_PIN, 0);
-    sleep_us(1U << bit);
+    sleep_us(20U << bit);
     gpio_put(HUB75_OE_PIN, 1);
 }
 
@@ -104,4 +114,22 @@ void hub75_init(void) {
     hub75_program_init(pio, sm, offset, HUB75_R1_PIN);
     set_row_address(0);
     hub75_clear();
+}
+
+void hub75_set_cursor(uint8_t x, uint8_t y) {
+    target_x = x;
+    target_y = y;
+}
+
+void hub75_update(void) {
+    cursor_x += (target_x - cursor_x) * lerp_speed;
+    cursor_y += (target_y - cursor_y) * lerp_speed;
+}
+
+uint8_t hub75_get_cursor_x(void) {
+    return (uint8_t)(cursor_x + 0.5f);
+}
+
+uint8_t hub75_get_cursor_y(void) {
+    return (uint8_t)(cursor_y + 0.5f);
 }
