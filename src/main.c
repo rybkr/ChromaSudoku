@@ -45,7 +45,7 @@ int main() {
     hub75_init();
 
     game_init();
-    game_new_puzzle(DIFFICULTY_HARD);
+    game_new_puzzle(DIFFICULTY_EASY);
 
     while (true) {
         game_update();
