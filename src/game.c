@@ -151,6 +151,9 @@ void game_handle_keypad(void) {
                     game_state.cursor_col++;
                 }
                 break;
+            case 'C':
+                set(&game_state.puzzle, game_state.cursor_row,
+                    game_state.cursor_col, 0);
             case '1':
             case '2':
             case '3':
