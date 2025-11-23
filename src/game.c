@@ -3,6 +3,7 @@
 #include "display.h"
 #include "eeprom.h"
 #include "hub75.h"
+#include "font.h"
 #include "keypad.h"
 #include "pico/stdlib.h"
 #include <stdio.h>
@@ -13,12 +14,22 @@ typedef struct {
     uint8_t r, g, b;
 } color_t;
 
-static color_t number_to_color(uint8_t num);
 static void draw_sudoku_cell(uint8_t row, uint8_t col, color_t color);
 static void draw_cursor_ring(float row, float col);
+static void draw_intro_screen();
+
+static color_t number_to_color(uint8_t num);
 static void get_cell_position(uint8_t row, uint8_t col, uint8_t *x, uint8_t *y);
 
+static unsigned intro_animation_time = 0;
+static bool intro_animation_done = false;
+static bool intro_text_shown = false;
+static unsigned intro_text_time = 0;
+
 static game_state_t game_state;
+static game_screen_state_t current_screen_state = GAME_STATE_INTRO;
+
+static difficulty_t selected_difficulty;
 
 static float cursor_x = 4.0f;
 static float cursor_y = 4.0f;
@@ -39,6 +50,11 @@ void game_init(void) {
     game_state.difficulty = DIFFICULTY_EASY;
     game_state.solved = false;
     blink_start_time = time_us_32() / 1000000;
+
+    current_screen_state = GAME_STATE_INTRO;
+    intro_animation_time = 0;
+    intro_animation_done = false;
+    intro_text_shown = false;
 }
 
 void game_new_puzzle(difficulty_t difficulty) {
@@ -90,32 +106,78 @@ void game_new_puzzle(difficulty_t difficulty) {
 
 void game_update(void) {
     uint32_t current_time = time_us_32() / 1000000;
-    game_state.elapsed_time = current_time - game_state.start_time;
-
-    display_show_timer(game_state.elapsed_time);
-
-    game_handle_keypad();
-
-    float dx = game_state.cursor_col - cursor_x;
-    float dy = game_state.cursor_row - cursor_y;
-
-    if (fabsf(dx) > snap_threshold || fabsf(dy) > snap_threshold) {
-        cursor_x += dx * lerp_speed;
-        cursor_y += dy * lerp_speed;
-        cursor_moving = true;
-        blink_start_time = current_time;
-    } else {
-        cursor_x = game_state.cursor_col;
-        cursor_y = game_state.cursor_row;
-        cursor_moving = false;
+    
+    // Handle intro/menu state
+    if (current_screen_state == GAME_STATE_INTRO || 
+        current_screen_state == GAME_STATE_MENU) {
+        draw_intro_screen();
+        
+        // Check for difficulty selection (1, 2, or 3)
+        while (1) {
+            uint16_t event = keypad_get_event();
+            if (event == 0) break;
+            
+            if (keypad_is_pressed(event)) {
+                char key = keypad_get_char(event);
+                
+                if (key == '1' && intro_animation_done) {
+                    selected_difficulty = DIFFICULTY_EASY;
+                    current_screen_state = GAME_STATE_PLAYING;
+                    game_new_puzzle(selected_difficulty);
+                    intro_animation_time = 0;
+                    intro_animation_done = false;
+                    intro_text_shown = false;
+                    break;
+                } else if (key == '2' && intro_animation_done) {
+                    selected_difficulty = DIFFICULTY_MEDIUM;
+                    current_screen_state = GAME_STATE_PLAYING;
+                    game_new_puzzle(selected_difficulty);
+                    intro_animation_time = 0;
+                    intro_animation_done = false;
+                    intro_text_shown = false;
+                    break;
+                } else if (key == '3' && intro_animation_done) {
+                    selected_difficulty = DIFFICULTY_HARD;
+                    current_screen_state = GAME_STATE_PLAYING;
+                    game_new_puzzle(selected_difficulty);
+                    intro_animation_time = 0;
+                    intro_animation_done = false;
+                    intro_text_shown = false;
+                    break;
+                }
+            }
+        }
+        return;
     }
-
-    if (!game_state.solved && game_check_solved()) {
-        game_state.solved = true;
-        audio_play_victory_tune();
+    
+    // Existing game update code for playing state
+    if (current_screen_state == GAME_STATE_PLAYING) {
+        game_state.elapsed_time = current_time - game_state.start_time;
+        display_show_timer(game_state.elapsed_time);
+        
+        game_handle_keypad();
+        
+        float dx = game_state.cursor_col - cursor_x;
+        float dy = game_state.cursor_row - cursor_y;
+        
+        if (fabsf(dx) > snap_threshold || fabsf(dy) > snap_threshold) {
+            cursor_x += dx * lerp_speed;
+            cursor_y += dy * lerp_speed;
+            cursor_moving = true;
+            blink_start_time = current_time;
+        } else {
+            cursor_x = game_state.cursor_col;
+            cursor_y = game_state.cursor_row;
+            cursor_moving = false;
+        }
+        
+        if (!game_state.solved && game_check_solved()) {
+            game_state.solved = true;
+            audio_play_victory_tune();
+        }
+        
+        game_draw_board();
     }
-
-    game_draw_board();
 }
 
 void game_handle_keypad(void) {
@@ -174,37 +236,8 @@ void game_handle_keypad(void) {
     }
 }
 
-static void draw_digit(uint8_t digit, uint8_t start_x, uint8_t start_y, uint8_t r, uint8_t g, uint8_t b) {
-    static const uint8_t font[9][7] = {
-        {0x0C, 0x1C, 0x0C, 0x0C, 0x0C, 0x0C, 0x1E}, // 1
-        {0x1E, 0x33, 0x03, 0x0E, 0x18, 0x30, 0x3F}, // 2
-        {0x1E, 0x33, 0x03, 0x0E, 0x03, 0x33, 0x1E}, // 3
-        {0x06, 0x0E, 0x16, 0x26, 0x3F, 0x06, 0x06}, // 4
-        {0x3F, 0x30, 0x3E, 0x03, 0x03, 0x33, 0x1E}, // 5
-        {0x1E, 0x30, 0x30, 0x3E, 0x33, 0x33, 0x1E}, // 6
-        {0x3F, 0x03, 0x06, 0x0C, 0x18, 0x18, 0x18}, // 7
-        {0x1E, 0x33, 0x33, 0x1E, 0x33, 0x33, 0x1E}, // 8
-        {0x1E, 0x33, 0x33, 0x1F, 0x03, 0x03, 0x1E}, // 9
-    };
-
-    if (digit < 1 || digit > 9) return;
-
-    for (uint8_t row = 0; row < 7; row++) {
-        uint8_t bits = font[digit - 1][row];
-        for (uint8_t col = 0; col < 6; col++) {
-            if (bits & (0x20 >> col)) {
-                uint8_t px = start_x + row;
-                uint8_t py = start_y + (5 - col);
-                hub75_set_pixel(px, py, r, g, b);
-            }
-        }
-    }
-}
-
 static void draw_help_screen(void) {
     hub75_clear();
-
-    static const uint8_t digit_order[9] = {3, 6, 9, 2, 5, 8, 1, 4, 7};
 
     for (uint8_t i = 0; i < 9; i++) {
         uint8_t row = i / 3;
@@ -212,9 +245,8 @@ static void draw_help_screen(void) {
         uint8_t start_x = 2 + col * 10;
         uint8_t start_y = 2 + row * 10;
 
-        uint8_t digit = digit_order[i];
-        draw_digit(digit, start_x, start_y,
-                   color_map[digit - 1].r, color_map[digit - 1].g, color_map[digit - 1].b);
+        uint8_t digit = i + 1;
+        draw_char_5x7(digit + '0', start_x, start_y, color_map[digit - 1].r, color_map[digit - 1].g, color_map[digit - 1].b);
     }
 }
 
@@ -305,4 +337,78 @@ static void draw_cursor_ring(float row, float col) {
             hub75_set_pixel(start_x + 2, y, 255, 255, 255);
         }
     }
+}
+
+
+static void draw_color_rush_animation(uint32_t time_ms) {
+    hub75_clear();
+    
+    for (uint8_t y = 0; y < HUB75_PANEL_HEIGHT; y++) {
+        for (uint8_t x = 0; x < HUB75_PANEL_WIDTH; x++) {
+            float wave_pos = (float)(x + y + time_ms / 10) * 0.3f;
+            float hue = fmodf(wave_pos, 6.0f);
+            
+            uint8_t r, g, b;
+            
+            if (hue < 1.0f) {
+                r = 255; g = (uint8_t)(hue * 255); b = 0;
+            } else if (hue < 2.0f) {
+                r = (uint8_t)((2.0f - hue) * 255); g = 255; b = 0;
+            } else if (hue < 3.0f) {
+                r = 0; g = 255; b = (uint8_t)((hue - 2.0f) * 255);
+            } else if (hue < 4.0f) {
+                r = 0; g = (uint8_t)((4.0f - hue) * 255); b = 255;
+            } else if (hue < 5.0f) {
+                r = (uint8_t)((hue - 4.0f) * 255); g = 0; b = 255;
+            } else {
+                r = 255; g = 0; b = (uint8_t)((6.0f - hue) * 255);
+            }
+            
+            float fade = 1.0f;
+            if (time_ms < 500) {
+                fade = (float)time_ms / 500.0f;
+            } else if (time_ms > 1500) {
+                fade = 1.0f - ((float)(time_ms - 1500) / 500.0f);
+                if (fade < 0) fade = 0;
+            }
+            
+            r = (uint8_t)(r * fade);
+            g = (uint8_t)(g * fade);
+            b = (uint8_t)(b * fade);
+            
+            hub75_set_pixel(x, y, r, g, b);
+        }
+    }
+}
+
+static void draw_intro_screen(void) {
+    uint32_t current_time_ms = time_us_32() / 1000;
+    
+    if (intro_animation_time == 0) {
+        intro_animation_time = current_time_ms;
+    }
+    
+    uint32_t elapsed = current_time_ms - intro_animation_time;
+    
+    // Phase 1: Color rush animation (0-3000ms)
+    if (elapsed < 2000) {
+        draw_color_rush_animation(elapsed);
+        hub75_refresh();
+        return;
+    }
+    
+    // Phase 3: Show menu with options 1, 2, 3
+    hub75_clear();
+    
+    draw_char_5x7('1', 1, 3, COLOR_CYAN);
+    draw_text("EASY", 8, 3, COLOR_WHITE);
+    
+    draw_char_5x7('2', 1, 13, COLOR_ORANGE);
+    draw_text("MED", 8, 13, 255, 255, 255);
+    
+    draw_char_5x7('3', 1, 23, COLOR_RED);
+    draw_text("HARD", 8, 23, 255, 255, 255);
+    
+    hub75_refresh();
+    intro_animation_done = true;
 }

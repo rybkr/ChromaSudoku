@@ -7,6 +7,17 @@
 #define HUB75_PANEL_HEIGHT 32
 #define HUB75_COLOR_DEPTH  4
 
+#define COLOR_RED 255, 0, 0
+#define COLOR_RED 255, 0, 0
+#define COLOR_GREEN 0, 255, 0
+#define COLOR_BLUE 0, 0, 255
+#define COLOR_YELLOW 255, 255, 0
+#define COLOR_MAGENTA 255, 0, 255
+#define COLOR_CYAN 0, 255, 255
+#define COLOR_ORANGE 255, 64, 0
+#define COLOR_PURPLE  64, 0, 255
+#define COLOR_WHITE 255, 255, 255
+
 void hub75_init();
 void hub75_refresh();
 

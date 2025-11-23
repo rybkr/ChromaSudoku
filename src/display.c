@@ -108,10 +108,10 @@ void display_print_at(uint8_t row, uint8_t col,
     }
 }
 void display_show_splash(void) {
-    display_clear();
-    display_print_at(0, 0, " Chroma Sudoku ");
-    display_print_at(1, 0, "    Team 76    ");
-
-    sleep_ms(3000);
-    display_clear();
+    // TODO(rybkr): Reactivate this display.
+    //display_clear();
+    //display_print_at(0, 0, " Chroma Sudoku ");
+    //display_print_at(1, 0, "    Team 76    ");
+    //sleep_ms(3000);
+    //display_clear();
 }

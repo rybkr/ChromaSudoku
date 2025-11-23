@@ -1,15 +1,25 @@
 #ifndef GAME_H_CB9C1A5B6910FB2F
 #define GAME_H_CB9C1A5B6910FB2F
 
+#include "hub75.h"
 #include "sudoku.h"
 #include <stdbool.h>
 #include <stdint.h>
 
 typedef enum {
-    DIFFICULTY_EASY = 1,
+    DIFFICULTY_BEGIN = 1,
+    DIFFICULTY_EASY = DIFFICULTY_BEGIN,
     DIFFICULTY_MEDIUM = 2,
-    DIFFICULTY_HARD = 3
+    DIFFICULTY_HARD = 3,
+    DIFFICULTY_COUNT,
 } difficulty_t;
+
+typedef enum {
+    GAME_STATE_INTRO,
+    GAME_STATE_MENU,
+    GAME_STATE_PLAYING,
+    GAME_STATE_PAUSED,
+} game_screen_state_t;
 
 typedef struct {
     sudoku_puzzle_t puzzle;
@@ -27,15 +37,9 @@ static const struct {
     uint8_t g;
     uint8_t b;
 } color_map[9] = {
-    {255,   0,   0},   // 1 - Red
-    {  0, 255,   0},   // 2 - Green
-    {  0,   0, 255},   // 3 - Blue
-    {255, 255,   0},   // 4 - Yellow
-    {255,   0, 255},   // 5 - Magenta
-    {  0, 255, 255},   // 6 - Cyan
-    {255,  64,   0},   // 7 - Orange
-    { 64,   0, 255},   // 8 - Purple
-    {255, 255, 255},   // 9 - White
+    {COLOR_RED}, {COLOR_GREEN}, {COLOR_BLUE},
+    {COLOR_YELLOW}, {COLOR_MAGENTA}, {COLOR_CYAN},
+    {COLOR_ORANGE}, {COLOR_PURPLE}, {COLOR_WHITE},
 };
 
 void game_init();
