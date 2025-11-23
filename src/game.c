@@ -26,12 +26,14 @@ typedef enum {
 static void draw_sudoku_puzzle(sudoku_puzzle_t *puzzle);
 static void draw_sudoku_cell(uint8_t row, uint8_t col, color_t color);
 static void draw_cursor_ring(float row, float col);
+
 static void draw_intro_screen();
+static void draw_help_screen();
+static void draw_color_rush_animation(uint32_t time_ms);
 
 static void get_cell_position(uint8_t row, uint8_t col, uint8_t *x, uint8_t *y);
 static color_t number_to_color(uint8_t num);
 
-static void create_puzzle(sudoku_puzzle_t *puzzle, int cells_to_remove);
 static void create_puzzle_from_solution(sudoku_puzzle_t *puzzle, int cells_to_remove);
 static unsigned cells_to_remove_by_difficulty(difficulty_t difficulty);
 
@@ -52,14 +54,8 @@ static const float lerp_speed = .2f;
 static const float snap_threshold = .05f;
 static unsigned blink_start_time = 0;
 
-void game_init(void) {
+void game_init() {
     memset(&game_state, 0, sizeof(game_state_t));
-    game_state.cursor_row = game_state.cursor_col = 4;
-    cursor_x = cursor_y = 4.0f;
-    game_state.selected_color = 0;
-    game_state.difficulty = DIFFICULTY_EASY;
-    game_state.solved = false;
-    blink_start_time = time_us_32() / 1000000;
 
     current_screen_state = GAME_STATE_INTRO;
     intro_animation_time = 0;
@@ -84,24 +80,11 @@ void game_new_puzzle(difficulty_t difficulty) {
     game_state.start_time = time_us_32() / 1000000;
     game_state.elapsed_time = 0;
 
-    const char *diff_str;
-    switch (difficulty) {
-    case DIFFICULTY_EASY:
-        diff_str = "Easy";
-        break;
-    case DIFFICULTY_MEDIUM:
-        diff_str = "Med";
-        break;
-    case DIFFICULTY_HARD:
-        diff_str = "Hard";
-        break;
-    default:
-        diff_str = "Easy";
-    }
+    const char *diff_str = DIFFICULTY_NAMES[game_state.difficulty];
     display_show_difficulty(diff_str);
 }
 
-void game_update(void) {
+void game_update() {
     uint32_t current_time = time_us_32() / 1000000;
     
     // Handle intro/menu state
@@ -177,7 +160,7 @@ void game_update(void) {
     }
 }
 
-void game_handle_keypad(void) {
+void game_handle_keypad() {
     show_help = keypad_is_key_held('*');
 
     while (1) {
@@ -233,32 +216,8 @@ void game_handle_keypad(void) {
     }
 }
 
-static void draw_help_screen(void) {
-    hub75_clear();
-
-    for (uint8_t i = 0; i < 9; i++) {
-        uint8_t row = i / 3;
-        uint8_t col = i % 3;
-        uint8_t start_x = 2 + col * 10;
-        uint8_t start_y = 2 + row * 10;
-
-        uint8_t digit = i + 1;
-        draw_char_5x7(digit + '0', start_x, start_y, color_map[digit - 1].r, color_map[digit - 1].g, color_map[digit - 1].b);
-    }
-}
-
-bool game_check_solved(void) {
+bool game_check_solved() {
     return is_valid(&game_state.puzzle);
-}
-
-static void draw_sudoku_puzzle(sudoku_puzzle_t *puzzle) {
-    for (uint8_t row = 0; row < 9; row++) {
-        for (uint8_t col = 0; col < 9; col++) {
-            uint8_t value = get(puzzle, row, col);
-            color_t color = number_to_color(value);
-            draw_sudoku_cell(row, col, color);
-        }
-    }
 }
 
 void game_draw_board() {
@@ -282,21 +241,14 @@ void game_draw_board() {
     hub75_refresh();
 }
 
-static color_t number_to_color(uint8_t num) {
-    if (num == 0 || num > 9) {
-        color_t black = {0, 0, 0};
-        return black;
+static void draw_sudoku_puzzle(sudoku_puzzle_t *puzzle) {
+    for (uint8_t row = 0; row < 9; row++) {
+        for (uint8_t col = 0; col < 9; col++) {
+            uint8_t value = get(puzzle, row, col);
+            color_t color = number_to_color(value);
+            draw_sudoku_cell(row, col, color);
+        }
     }
-    color_t color;
-    color.r = color_map[num - 1].r;
-    color.g = color_map[num - 1].g;
-    color.b = color_map[num - 1].b;
-    return color;
-}
-
-static void get_cell_position(uint8_t row, uint8_t col, uint8_t *x, uint8_t *y) {
-    *x = 2 + (col / 3) + (col * 3);
-    *y = 2 + (row / 3) + (row * 3);
 }
 
 static void draw_sudoku_cell(uint8_t row, uint8_t col, color_t color) {
@@ -339,6 +291,51 @@ static void draw_cursor_ring(float row, float col) {
     }
 }
 
+static void draw_intro_screen() {
+    uint32_t current_time_ms = time_us_32() / 1000;
+    
+    if (intro_animation_time == 0) {
+        intro_animation_time = current_time_ms;
+    }
+    
+    uint32_t elapsed = current_time_ms - intro_animation_time;
+    
+    // Phase 1: Color rush animation (0-3000ms)
+    if (elapsed < 2000) {
+        draw_color_rush_animation(elapsed);
+        hub75_refresh();
+        return;
+    }
+    
+    // Phase 3: Show menu with options 1, 2, 3
+    hub75_clear();
+    
+    draw_char_5x7('1', 1, 3, COLOR_CYAN);
+    draw_text("EASY", 8, 3, COLOR_WHITE);
+    
+    draw_char_5x7('2', 1, 13, COLOR_ORANGE);
+    draw_text("MED", 8, 13, 255, 255, 255);
+    
+    draw_char_5x7('3', 1, 23, COLOR_RED);
+    draw_text("HARD", 8, 23, 255, 255, 255);
+    
+    hub75_refresh();
+    intro_animation_done = true;
+}
+
+static void draw_help_screen() {
+    hub75_clear();
+
+    for (uint8_t i = 0; i < 9; i++) {
+        uint8_t row = i / 3;
+        uint8_t col = i % 3;
+        uint8_t start_x = 2 + col * 10;
+        uint8_t start_y = 2 + row * 10;
+
+        uint8_t digit = i + 1;
+        draw_char_5x7(digit + '0', start_x, start_y, color_map[digit - 1].r, color_map[digit - 1].g, color_map[digit - 1].b);
+    }
+}
 
 static void draw_color_rush_animation(uint32_t time_ms) {
     hub75_clear();
@@ -381,49 +378,21 @@ static void draw_color_rush_animation(uint32_t time_ms) {
     }
 }
 
-static void draw_intro_screen(void) {
-    uint32_t current_time_ms = time_us_32() / 1000;
-    
-    if (intro_animation_time == 0) {
-        intro_animation_time = current_time_ms;
-    }
-    
-    uint32_t elapsed = current_time_ms - intro_animation_time;
-    
-    // Phase 1: Color rush animation (0-3000ms)
-    if (elapsed < 2000) {
-        draw_color_rush_animation(elapsed);
-        hub75_refresh();
-        return;
-    }
-    
-    // Phase 3: Show menu with options 1, 2, 3
-    hub75_clear();
-    
-    draw_char_5x7('1', 1, 3, COLOR_CYAN);
-    draw_text("EASY", 8, 3, COLOR_WHITE);
-    
-    draw_char_5x7('2', 1, 13, COLOR_ORANGE);
-    draw_text("MED", 8, 13, 255, 255, 255);
-    
-    draw_char_5x7('3', 1, 23, COLOR_RED);
-    draw_text("HARD", 8, 23, 255, 255, 255);
-    
-    hub75_refresh();
-    intro_animation_done = true;
+static void get_cell_position(uint8_t row, uint8_t col, uint8_t *x, uint8_t *y) {
+    *x = 2 + (col / 3) + (col * 3);
+    *y = 2 + (row / 3) + (row * 3);
 }
 
-static unsigned cells_to_remove_by_difficulty(difficulty_t difficulty) {
-    switch (difficulty) {
-    case DIFFICULTY_EASY:
-        return 36;
-    case DIFFICULTY_MEDIUM:
-        return 42;
-    case DIFFICULTY_HARD:
-        return 50;
-    default:
-        return cells_to_remove_by_difficulty(DIFFICULTY_DEFAULT);
+static color_t number_to_color(uint8_t num) {
+    if (num == 0 || num > 9) {
+        color_t black = {0, 0, 0};
+        return black;
     }
+    color_t color;
+    color.r = color_map[num - 1].r;
+    color.g = color_map[num - 1].g;
+    color.b = color_map[num - 1].b;
+    return color;
 }
 
 static void create_puzzle_from_solution(sudoku_puzzle_t *puzzle, int cells_to_remove) {
@@ -454,5 +423,18 @@ static void create_puzzle_from_solution(sudoku_puzzle_t *puzzle, int cells_to_re
         }
         draw_sudoku_puzzle(puzzle);
         hub75_refresh();
+    }
+}
+
+static unsigned cells_to_remove_by_difficulty(difficulty_t difficulty) {
+    switch (difficulty) {
+    case DIFFICULTY_EASY:
+        return 36;
+    case DIFFICULTY_MEDIUM:
+        return 42;
+    case DIFFICULTY_HARD:
+        return 50;
+    default:
+        return cells_to_remove_by_difficulty(DIFFICULTY_DEFAULT);
     }
 }

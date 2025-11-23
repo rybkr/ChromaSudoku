@@ -15,6 +15,12 @@ typedef enum {
     DIFFICULTY_DEFAULT = DIFFICULTY_EASY,
 } difficulty_t;
 
+static const char *DIFFICULTY_NAMES[] = {
+    [DIFFICULTY_EASY] = "Easy",
+    [DIFFICULTY_MEDIUM] = "Med",
+    [DIFFICULTY_HARD] = "Hard",
+};
+
 typedef struct {
     sudoku_puzzle_t puzzle;
     difficulty_t difficulty;
