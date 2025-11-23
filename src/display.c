@@ -75,7 +75,8 @@ void display_show_difficulty(const char *difficulty) {
     char buf[17];
     snprintf(buf, sizeof(buf), "Difficulty: %-6s", difficulty);
     cd_display1(buf);
-    sleep_ms(2000);
+    // TODO(rybkr): Reinstitute delay
+    //sleep_ms(2000);
 }
 
 void display_show_timer(uint32_t seconds) {

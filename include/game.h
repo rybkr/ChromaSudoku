@@ -12,24 +12,20 @@ typedef enum {
     DIFFICULTY_MEDIUM = 2,
     DIFFICULTY_HARD = 3,
     DIFFICULTY_COUNT,
+    DIFFICULTY_DEFAULT = DIFFICULTY_EASY,
 } difficulty_t;
-
-typedef enum {
-    GAME_STATE_INTRO,
-    GAME_STATE_MENU,
-    GAME_STATE_PLAYING,
-    GAME_STATE_PAUSED,
-} game_screen_state_t;
 
 typedef struct {
     sudoku_puzzle_t puzzle;
+    difficulty_t difficulty;
+    bool solved;
+
     uint8_t cursor_row;
     uint8_t cursor_col;
     uint8_t selected_color;
-    difficulty_t difficulty;
+
     uint32_t start_time;
     uint32_t elapsed_time;
-    bool solved;
 } game_state_t;
 
 static const struct {

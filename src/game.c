@@ -5,6 +5,8 @@
 #include "hub75.h"
 #include "font.h"
 #include "keypad.h"
+#include "rng.h"
+#include "sudoku.h"
 #include "pico/stdlib.h"
 #include <stdio.h>
 #include <string.h>
@@ -14,38 +16,46 @@ typedef struct {
     uint8_t r, g, b;
 } color_t;
 
+typedef enum {
+    GAME_STATE_INTRO,
+    GAME_STATE_MENU,
+    GAME_STATE_PLAYING,
+    GAME_STATE_PAUSED,
+} game_screen_state_t;
+
+static void draw_sudoku_puzzle(sudoku_puzzle_t *puzzle);
 static void draw_sudoku_cell(uint8_t row, uint8_t col, color_t color);
 static void draw_cursor_ring(float row, float col);
 static void draw_intro_screen();
 
-static color_t number_to_color(uint8_t num);
 static void get_cell_position(uint8_t row, uint8_t col, uint8_t *x, uint8_t *y);
+static color_t number_to_color(uint8_t num);
+
+static void create_puzzle(sudoku_puzzle_t *puzzle, int cells_to_remove);
+static void create_puzzle_from_solution(sudoku_puzzle_t *puzzle, int cells_to_remove);
+static unsigned cells_to_remove_by_difficulty(difficulty_t difficulty);
+
+static game_state_t game_state;
+static game_screen_state_t current_screen_state = GAME_STATE_INTRO;
+static difficulty_t selected_difficulty;
+
+static bool show_help = false;
 
 static unsigned intro_animation_time = 0;
 static bool intro_animation_done = false;
 static bool intro_text_shown = false;
-static unsigned intro_text_time = 0;
 
-static game_state_t game_state;
-static game_screen_state_t current_screen_state = GAME_STATE_INTRO;
-
-static difficulty_t selected_difficulty;
-
-static float cursor_x = 4.0f;
-static float cursor_y = 4.0f;
-static const float lerp_speed = 0.2f;
-static const float snap_threshold = 0.05f;
-static uint32_t blink_start_time = 0;
+static float cursor_x = 4.f;
+static float cursor_y = 4.f;
 static bool cursor_moving = false;
-
-static bool show_help = false;
+static const float lerp_speed = .2f;
+static const float snap_threshold = .05f;
+static unsigned blink_start_time = 0;
 
 void game_init(void) {
     memset(&game_state, 0, sizeof(game_state_t));
-    game_state.cursor_row = 4;
-    game_state.cursor_col = 4;
-    cursor_x = 4.0f;
-    cursor_y = 4.0f;
+    game_state.cursor_row = game_state.cursor_col = 4;
+    cursor_x = cursor_y = 4.0f;
     game_state.selected_color = 0;
     game_state.difficulty = DIFFICULTY_EASY;
     game_state.solved = false;
@@ -65,20 +75,7 @@ void game_new_puzzle(difficulty_t difficulty) {
     game_state.solved = false;
     blink_start_time = time_us_32() / 1000000;
 
-    int cells_to_remove;
-    switch (difficulty) {
-    case DIFFICULTY_EASY:
-        cells_to_remove = 36;
-        break;
-    case DIFFICULTY_MEDIUM:
-        cells_to_remove = 42;
-        break;
-    case DIFFICULTY_HARD:
-        cells_to_remove = 50;
-        break;
-    default:
-        cells_to_remove = 36;
-    }
+    const int cells_to_remove = cells_to_remove_by_difficulty(difficulty);
 
     clear(&game_state.puzzle);
     solve_puzzle(&game_state.puzzle);
@@ -181,7 +178,7 @@ void game_update(void) {
 }
 
 void game_handle_keypad(void) {
-    show_help = keypad_is_key_held('A');
+    show_help = keypad_is_key_held('*');
 
     while (1) {
         uint16_t event = keypad_get_event();
@@ -193,27 +190,27 @@ void game_handle_keypad(void) {
             char key = keypad_get_char(event);
 
             switch (key) {
-            case '#':
+            case 'B':
                 if (game_state.cursor_col > 0) {
                     game_state.cursor_col--;
                 }
                 break;
-            case '*':
+            case 'D':
                 if (game_state.cursor_row < 8) {
                     game_state.cursor_row++;
                 }
                 break;
-            case 'D':
+            case 'A':
                 if (game_state.cursor_row > 0) {
                     game_state.cursor_row--;
                 }
                 break;
-            case '0':
+            case 'C':
                 if (game_state.cursor_col < 8) {
                     game_state.cursor_col++;
                 }
                 break;
-            case 'C':
+            case '0':
                 set(&game_state.puzzle, game_state.cursor_row,
                     game_state.cursor_col, 0);
             case '1':
@@ -254,7 +251,17 @@ bool game_check_solved(void) {
     return is_valid(&game_state.puzzle);
 }
 
-void game_draw_board(void) {
+static void draw_sudoku_puzzle(sudoku_puzzle_t *puzzle) {
+    for (uint8_t row = 0; row < 9; row++) {
+        for (uint8_t col = 0; col < 9; col++) {
+            uint8_t value = get(puzzle, row, col);
+            color_t color = number_to_color(value);
+            draw_sudoku_cell(row, col, color);
+        }
+    }
+}
+
+void game_draw_board() {
     if (show_help) {
         draw_help_screen();
         hub75_refresh();
@@ -262,14 +269,7 @@ void game_draw_board(void) {
     }
 
     hub75_clear();
-
-    for (uint8_t row = 0; row < 9; row++) {
-        for (uint8_t col = 0; col < 9; col++) {
-            uint8_t value = get(&game_state.puzzle, row, col);
-            color_t color = number_to_color(value);
-            draw_sudoku_cell(row, col, color);
-        }
-    }
+    draw_sudoku_puzzle(&game_state.puzzle);
 
     uint32_t current_time = time_us_32() / 1000000;
     uint32_t time_since_move = current_time - blink_start_time;
@@ -411,4 +411,48 @@ static void draw_intro_screen(void) {
     
     hub75_refresh();
     intro_animation_done = true;
+}
+
+static unsigned cells_to_remove_by_difficulty(difficulty_t difficulty) {
+    switch (difficulty) {
+    case DIFFICULTY_EASY:
+        return 36;
+    case DIFFICULTY_MEDIUM:
+        return 42;
+    case DIFFICULTY_HARD:
+        return 50;
+    default:
+        return cells_to_remove_by_difficulty(DIFFICULTY_DEFAULT);
+    }
+}
+
+static void create_puzzle_from_solution(sudoku_puzzle_t *puzzle, int cells_to_remove) {
+    memcpy(puzzle->solution, puzzle->grid, 81);
+
+    uint8_t positions[81];
+    for (int i = 0; i < 81; i++) {
+        positions[i] = i;
+    }
+    shuffle_array(positions, 81);
+
+    hub75_clear();
+
+    int removed = 0;
+    for (int i = 0; i < 81 && removed < cells_to_remove; i++) {
+        sleep_ms(10);
+        int pos = positions[i];
+        int row = pos / 9;
+        int col = pos % 9;
+
+        uint8_t backup = get(puzzle, row, col);
+        set(puzzle, row, col, 0);
+
+        if (has_unique_solution(puzzle)) {
+            removed++;
+        } else {
+            set(puzzle, row, col, backup);
+        }
+        draw_sudoku_puzzle(puzzle);
+        hub75_refresh();
+    }
 }

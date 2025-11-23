@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-
 typedef struct {
     uint8_t grid[81];
     uint8_t solution[81];
@@ -23,8 +22,5 @@ bool find_empty_cell(sudoku_puzzle_t *puzzle, int *row, int *col);
 bool solve_puzzle(sudoku_puzzle_t *puzzle);
 void fill_diagonal_boxes(sudoku_puzzle_t *puzzle);
 bool has_unique_solution(sudoku_puzzle_t *puzzle);
-
-void create_puzzle_from_solution(sudoku_puzzle_t *puzzle, int cells_to_remove);
-
 
 #endif // SUDOKU_H_416AAA1E2ECC5CA3

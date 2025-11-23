@@ -2,6 +2,9 @@
 #include "sudoku.h"
 #include <string.h>
 
+static int solution_count;
+static int max_solutions;
+
 bool solve_puzzle(sudoku_puzzle_t *puzzle) {
     int row, col;
 
@@ -42,9 +45,6 @@ void fill_diagonal_boxes(sudoku_puzzle_t *puzzle) {
         }
     }
 }
-
-static int solution_count;
-static int max_solutions;
 
 static bool count_solutions_helper(sudoku_puzzle_t *puzzle) {
     if (solution_count >= max_solutions) {
