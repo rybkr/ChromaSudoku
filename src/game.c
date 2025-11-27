@@ -6,6 +6,7 @@
 #include "hub75.h"
 #include "font.h"
 #include "keypad.h"
+#include "joystick.h"
 #include "rng.h"
 #include "sudoku.h"
 #include "pico/stdlib.h"
@@ -93,10 +94,10 @@ void game_new_puzzle(difficulty_t difficulty) {
 
     // LCD1: show difficulty briefly
     const char *diff_str = DIFFICULTY_NAMES[game_state.difficulty];
-    display_show_difficulty(diff_str);
+    //display_show_difficulty(diff_str);
 
     // LCD2: show HUD (best time + help hint)
-    display2_show_game_hud(game_state.best_time);
+    //display2_show_game_hud(game_state.best_time);
 }
 
 void game_update() {
@@ -155,11 +156,12 @@ void game_update() {
         }
 
         // LCD1: timer + mode
-        display_show_timer(game_state.elapsed_time);
-        display_show_mode(DIFFICULTY_NAMES[game_state.difficulty]);
+        //display_show_timer(game_state.elapsed_time);
+        //display_show_mode(DIFFICULTY_NAMES[game_state.difficulty]);
 
         // Handle keypad input for moves
         game_handle_keypad();
+        game_handle_joystick();
 
         // Smooth cursor interpolation
         float dx = game_state.cursor_col - cursor_x;
@@ -216,10 +218,10 @@ void game_update() {
             uint32_t best_to_show = new_record ? final_time : old_best;
 
             // LCD1: show final vs best
-            display_show_final_and_best(final_time, best_to_show);
+            //display_show_final_and_best(final_time, best_to_show);
 
             // LCD2: solved message (with or without new high score)
-            display2_show_solved(new_record);
+            //display2_show_solved(new_record);
         }
 
         // Draw board to panel
@@ -231,35 +233,16 @@ void game_handle_keypad() {
     show_help = keypad_is_key_held('*');
 
     while (1) {
-        uint16_t event = keypad_get_event();
-        if (event == 0) {
+        uint16_t keypad_event = keypad_get_event();
+        uint32_t joystick_event = joystick_get_event();
+        if (keypad_event == 0) {
             break;
         }
 
-        if (keypad_is_pressed(event)) {
-            char key = keypad_get_char(event);
+        if (keypad_is_pressed(keypad_event)) {
+            char key = keypad_get_char(keypad_event);
 
             switch (key) {
-            case 'B':
-                if (game_state.cursor_col > 0) {
-                    game_state.cursor_col--;
-                }
-                break;
-            case 'D':
-                if (game_state.cursor_row < 8) {
-                    game_state.cursor_row++;
-                }
-                break;
-            case 'A':
-                if (game_state.cursor_row > 0) {
-                    game_state.cursor_row--;
-                }
-                break;
-            case 'C':
-                if (game_state.cursor_col < 8) {
-                    game_state.cursor_col++;
-                }
-                break;
             case '0':
                 set(&game_state.puzzle,
                     game_state.cursor_row,
@@ -284,6 +267,35 @@ void game_handle_keypad() {
             default:
                 break;
             }
+        }
+    }
+}
+
+void game_handle_joystick() {
+    const uint32_t event = joystick_get_event();
+    const direction_t direction = joystick_is_pressed(event);
+
+    if (direction & DIRECTION_N) {
+        if (game_state.cursor_col > 0) {
+            game_state.cursor_col--;
+        }
+    }
+
+    if (direction & DIRECTION_E) {
+        if (game_state.cursor_row < 8) {
+            game_state.cursor_row++;
+        }
+    }
+
+    if (direction & DIRECTION_W) {
+        if (game_state.cursor_row > 0) {
+            game_state.cursor_row--;
+        }
+    }
+
+    if (direction & DIRECTION_S) {
+        if (game_state.cursor_col < 8) {
+            game_state.cursor_col++;
         }
     }
 }
@@ -373,8 +385,8 @@ static void draw_intro_screen() {
     uint32_t current_time_ms = time_us_32() / 1000;
 
     // Keep both LCDs showing splash during intro/menu
-    display_show_splash();
-    display2_show_splash();
+    //display_show_splash();
+    //display2_show_splash();
 
     if (intro_animation_time == 0) {
         intro_animation_time = current_time_ms;

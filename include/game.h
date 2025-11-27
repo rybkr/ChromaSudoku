@@ -51,6 +51,7 @@ void game_new_puzzle(difficulty_t difficulty);
 void game_update();
 
 void game_handle_keypad();
+void game_handle_joystick();
 bool game_check_solved();
 void game_draw_board();
 

@@ -4,10 +4,9 @@
 #include "pico/stdlib.h"
 #include <stdio.h>
 
-// define gpio pins connected to LCD #1
-const int SPI_DISP_SCK = 18;
-const int SPI_DISP_CSn = 21;
-const int SPI_DISP_TX = 19;
+#define SPI_DISP_SCK 18
+#define SPI_DISP_CSn 21
+#define SPI_DISP_TX 19
 
 // waits until spi is free then sends to LCD
 static void send_spi_cmd(spi_inst_t *spi, uint16_t value) {
@@ -94,7 +93,7 @@ void display_show_splash(void) {
 
 void display_show_difficulty(const char *difficulty) {
     char buf[17];
-    snprintf(buf, sizeof(buf), "Difficulty: %-6s", difficulty);
+    snprintf(buf, sizeof(buf), "Difficulty: %-3s", difficulty);
     cd_display1(buf);
     // brief pause is fine here – called once when starting game
     sleep_ms(900);
@@ -104,7 +103,7 @@ void display_show_timer(uint32_t seconds) {
     char buf[17];
     uint32_t mins = seconds / 60;
     uint32_t secs = seconds % 60;
-    snprintf(buf, sizeof(buf), "Time: %02lu:%02lu    ", mins, secs);
+    snprintf(buf, sizeof(buf), "Time: %lu:%lu", mins, secs);
     cd_display1(buf);
 }
 
