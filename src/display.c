@@ -4,21 +4,25 @@
 #include "pico/stdlib.h"
 #include <stdio.h>
 
-#define SPI_DISP_SCK 18
-#define SPI_DISP_CSn 21
-#define SPI_DISP_TX 19
+//#define SPI_DISP_SCK 27
+//#define SPI_DISP_CSn 29
+//#define SPI_DISP_TX 28
+const int SPI_DISP_SCK = 18; // Replace with your SCK pin number for the LCD/OLED display
+const int SPI_DISP_CSn = 21; // Replace with your CSn pin number for the LCD/OLED display
+const int SPI_DISP_TX = 19;  // Replace with your TX pin number for the LCD/OLED display
 
-// waits until spi is free then sends to LCD
-static void send_spi_cmd(spi_inst_t *spi, uint16_t value) {
-    while (spi_is_busy(spi)) {
-        // Wait for SPI to be ready
+void send_spi_cmd(spi_inst_t *spi, uint16_t value)
+{
+    while (spi_is_busy(spi))
+    {
     }
     spi_write16_blocking(spi, &value, 1);
 }
 
 // calls send spi cmd and adds data bit
-static void send_spi_data(spi_inst_t *spi, uint16_t value) {
-    send_spi_cmd(spi, value | 0x100U);
+void send_spi_data(spi_inst_t *spi, uint16_t value)
+{
+    send_spi_cmd(spi, value | 0x200U);
 }
 
 // sets pins to spi role and initializes
@@ -26,41 +30,36 @@ static void init_chardisp_pins(void) {
     gpio_set_function(SPI_DISP_CSn, GPIO_FUNC_SPI);
     gpio_set_function(SPI_DISP_SCK, GPIO_FUNC_SPI);
     gpio_set_function(SPI_DISP_TX, GPIO_FUNC_SPI);
-    spi_init(spi0, 100000); // 100 kHz for safety
-    // 9 bits per frame, CPOL=1, CPHA=1, MSB first (what you had working)
-    spi_set_format(spi0, 9, 1, 1, SPI_MSB_FIRST);
+    spi_init(spi0, 10000);
+    spi_set_format(spi0, 10, 0, 0, SPI_MSB_FIRST);
 }
 
 static void cd_init(void) {
-    sleep_ms(15);
+    sleep_ms(1);
+    send_spi_cmd(spi0, 0b0000101100);
 
-    send_spi_cmd(spi0, 0x028); // function set
-    sleep_us(40);
+    sleep_ms(5);
+    send_spi_cmd(spi0, 0b0000001100);
 
-    send_spi_cmd(spi0, 0x00C); // display control
-    sleep_us(40);
-
-    send_spi_cmd(spi0, 0x001); // clear display
-    sleep_ms(2);
-
-    send_spi_cmd(spi0, 0x002); // return home
-    sleep_us(40);
-
-    send_spi_cmd(spi0, 0x006); // Entry mode set
+    sleep_ms(5);
+    send_spi_cmd(spi0, 1);
+    sleep_ms(5);
+    send_spi_cmd(spi0, 2);
+    sleep_ms(5);
 }
 
-// sets cursor to line 1
-static void cd_display1(const char *str) {
-    send_spi_cmd(spi0, 0x80);
-    for (int i = 0; str[i] != 0; ++i) {
+void cd_display1(const char *str) {
+    send_spi_cmd(spi0, 2);
+    for (int i = 0; str[i] != 0; ++i)
+    {
         send_spi_data(spi0, str[i]);
     }
 }
 
-// sets cursor to line 2
-static void cd_display2(const char *str) {
-    send_spi_cmd(spi0, 0xC0);
-    for (int i = 0; str[i] != 0; ++i) {
+void cd_display2(const char *str) {
+    send_spi_cmd(spi0, 0x2C);
+    for (int i = 0; str[i] != 0; ++i)
+    {
         send_spi_data(spi0, str[i]);
     }
 }

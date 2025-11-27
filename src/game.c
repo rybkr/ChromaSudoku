@@ -94,10 +94,10 @@ void game_new_puzzle(difficulty_t difficulty) {
 
     // LCD1: show difficulty briefly
     const char *diff_str = DIFFICULTY_NAMES[game_state.difficulty];
-    //display_show_difficulty(diff_str);
+    display_show_difficulty(diff_str);
 
     // LCD2: show HUD (best time + help hint)
-    //display2_show_game_hud(game_state.best_time);
+    display2_show_game_hud(game_state.best_time);
 }
 
 void game_update() {
@@ -156,8 +156,8 @@ void game_update() {
         }
 
         // LCD1: timer + mode
-        //display_show_timer(game_state.elapsed_time);
-        //display_show_mode(DIFFICULTY_NAMES[game_state.difficulty]);
+        display_show_timer(game_state.elapsed_time);
+        display_show_mode(DIFFICULTY_NAMES[game_state.difficulty]);
 
         // Handle keypad input for moves
         game_handle_keypad();
@@ -218,10 +218,10 @@ void game_update() {
             uint32_t best_to_show = new_record ? final_time : old_best;
 
             // LCD1: show final vs best
-            //display_show_final_and_best(final_time, best_to_show);
+            display_show_final_and_best(final_time, best_to_show);
 
             // LCD2: solved message (with or without new high score)
-            //display2_show_solved(new_record);
+            display2_show_solved(new_record);
         }
 
         // Draw board to panel
@@ -385,8 +385,8 @@ static void draw_intro_screen() {
     uint32_t current_time_ms = time_us_32() / 1000;
 
     // Keep both LCDs showing splash during intro/menu
-    //display_show_splash();
-    //display2_show_splash();
+    display_show_splash();
+    display2_show_splash();
 
     if (intro_animation_time == 0) {
         intro_animation_time = current_time_ms;
