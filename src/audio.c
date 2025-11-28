@@ -9,24 +9,126 @@
 #define AUDIO_RATE 20000
 #define AUDIO_WAVETABLE_SIZE 1000
 
-static short int wavetable[AUDIO_WAVETABLE_SIZE];
+#define AUDIO_CHANNEL (AUDIO_PWM_PIN & 1U)
+#define AUDIO_SLICE ((AUDIO_PWM_PIN >> 1U) & 7U)
 
-static int step0 = 0;
-static int offset0 = 0;
-static int step1 = 0;
-static int offset1 = 0;
+static short wavetable[AUDIO_WAVETABLE_SIZE];
 
-static const int CHAN_AUDIO = AUDIO_PWM_PIN & 1U;
-static const int SLICE_AUDIO = (AUDIO_PWM_PIN >> 1U) & 7U;
+static void init_wavetable();
+static void set_freq(int chan, float f);
+static void audio_pwm_handler();
 
-void init_wavetable() {
+static int step0, step1;
+static int offset0, offset1;
+
+static int victory_tune_note = -1;
+static unsigned victory_tune_timer = 0;
+static float victory_notes[] = {2093.00f, 2349.32f, 2637.02f, 3135.96f, 4186.01f, 3135.96f, 4186.01f, 4186.01f};
+static int victory_durations[] = {120, 120, 120, 200, 300, 150, 200, 500};
+static int num_victory_notes = 8;
+
+static int game_start_note = -1;
+static unsigned game_start_timer = 0;
+static float game_start_notes[] = {2637.02f, 3135.96f, 4186.01f};
+static int game_start_durations[] = {150, 150, 400};
+static int num_game_start_notes = 3;
+
+static bool blip_playing = false;
+static unsigned blip_timer = 0;
+
+void audio_init() {
+    gpio_set_function(AUDIO_PWM_PIN, GPIO_FUNC_PWM);
+    pwm_set_clkdiv(AUDIO_SLICE, 150.f);
+    pwm_set_wrap(AUDIO_SLICE, (125000000 / 150 / AUDIO_RATE) - 1);
+    pwm_set_chan_level(AUDIO_SLICE, AUDIO_CHANNEL, 0);
+
+    init_wavetable();
+
+    pwm_set_irq_enabled(AUDIO_SLICE, 1);
+    irq_set_exclusive_handler(PWM_IRQ_WRAP, audio_pwm_handler);
+    irq_set_enabled(PWM_IRQ_WRAP, 1);
+
+    pwm_set_enabled(AUDIO_SLICE, 1);
+}
+
+void audio_update() {
+    const uint32_t now_ms = time_us_32() / 1000;
+
+    if (blip_playing) {
+        uint32_t now = time_us_32() / 1000;
+        
+        if (now - blip_timer >= 15) {
+            audio_stop();
+            blip_playing = false;
+        }
+
+    } else if (game_start_note >= 0) {
+        if (now_ms - game_start_timer >= game_start_durations[game_start_note]) {
+            game_start_note++;
+
+            if (game_start_note < num_game_start_notes) {
+                audio_play_frequency(game_start_notes[game_start_note]);
+                game_start_timer = now_ms;
+            } else {
+                audio_stop();
+                game_start_note = -1;
+            }
+        }
+
+    } else if (victory_tune_note >= 0) {
+        if (now_ms - victory_tune_timer >= victory_durations[victory_tune_note]) {
+            victory_tune_note++;
+            
+            if (victory_tune_note < num_victory_notes) {
+                audio_play_frequency(victory_notes[victory_tune_note]);
+                victory_tune_timer = now_ms;
+            } else {
+                audio_stop();
+                victory_tune_note = -1;
+            }
+        }
+
+    } else {
+        audio_stop();
+    }
+}
+
+void audio_stop() {
+    set_freq(0, 0.0f);
+    set_freq(1, 0.0f);
+}
+
+void audio_play_frequency(float freq) {
+    set_freq(0, freq);
+    set_freq(1, freq * 1.5f);
+}
+
+void audio_play_victory_tune() {
+    victory_tune_note = 0;
+    victory_tune_timer = time_us_32() / 1000;
+    audio_play_frequency(victory_notes[0]);
+}
+
+void audio_play_blip() {
+    blip_playing = true;
+    blip_timer = time_us_32() / 1000;
+    audio_play_frequency(3520.0f);
+}
+
+void audio_play_game_start() {
+    game_start_note = 0;
+    game_start_timer = time_us_32() / 1000;
+    audio_play_frequency(game_start_notes[0]);
+}
+
+static void init_wavetable() {
     for (int i = 0; i < AUDIO_WAVETABLE_SIZE; i++) {
         wavetable[i] =
             (16383 * sin(2 * M_PI * i / AUDIO_WAVETABLE_SIZE)) + 16384;
     }
 }
 
-void set_freq(int chan, float f) {
+static void set_freq(int chan, float f) {
     if (chan == 0) {
         if (f == 0.0) {
             step0 = 0;
@@ -45,8 +147,8 @@ void set_freq(int chan, float f) {
     }
 }
 
-void audio_pwm_handler() {
-    pwm_clear_irq(SLICE_AUDIO);
+static void audio_pwm_handler() {
+    pwm_clear_irq(AUDIO_SLICE);
 
     offset0 += step0;
     offset1 += step1;
@@ -62,83 +164,10 @@ void audio_pwm_handler() {
     samp >>= 1;
     samp = (samp * 49) / 32768;
 
-    pwm_set_chan_level(SLICE_AUDIO, CHAN_AUDIO, samp);
+    pwm_set_chan_level(AUDIO_SLICE, AUDIO_CHANNEL, samp);
 }
 
-void audio_init() {
-    gpio_set_function(AUDIO_PWM_PIN, GPIO_FUNC_PWM);
-    pwm_set_clkdiv(SLICE_AUDIO, 150.f);
-    pwm_set_wrap(SLICE_AUDIO, (125000000 / 150 / AUDIO_RATE) - 1);
-    pwm_set_chan_level(SLICE_AUDIO, CHAN_AUDIO, 0);
 
-    init_wavetable();
 
-    pwm_set_irq_enabled(SLICE_AUDIO, 1);
-    irq_set_exclusive_handler(PWM_IRQ_WRAP, audio_pwm_handler);
-    irq_set_enabled(PWM_IRQ_WRAP, 1);
 
-    pwm_set_enabled(SLICE_AUDIO, 1);
-}
 
-void audio_play_frequency(float freq) {
-    set_freq(0, freq);
-    set_freq(1, freq * 1.5f);
-}
-
-void audio_stop() {
-    set_freq(0, 0.0f);
-    set_freq(1, 0.0f);
-}
-
-static int victory_tune_note = -1;
-static unsigned victory_tune_timer = 0;
-
-// Optimized for piezo resonance (3-5kHz range)
-// Classic "Power Up" victory tune in high octave
-static float victory_notes[] = {
-    2093.00f,  // C7 - quick ascending run
-    2349.32f,  // D7
-    2637.02f,  // E7
-    3135.96f,  // G7
-    4186.01f,  // C8 - triumphant high note!
-    3135.96f,  // G7 - back down
-    4186.01f,  // C8 - repeat for emphasis
-    4186.01f   // C8 - hold for victory!
-};
-static int victory_durations[] = {
-    120,  // Quick
-    120,  // Quick
-    120,  // Quick
-    200,  // Medium
-    300,  // Longer emphasis
-    150,  // Quick
-    200,  // Medium
-    500   // Long victorious hold!
-};
-static int num_victory_notes = 8;
-
-void audio_play_victory_tune() {
-    victory_tune_note = 0;
-    victory_tune_timer = time_us_32() / 1000;
-    audio_play_frequency(victory_notes[0]);
-}
-
-void audio_update() {
-    if (victory_tune_note < 0) {
-        audio_stop();
-        return;
-    }
-    uint32_t now = time_us_32() / 1000;
-    
-    if (now - victory_tune_timer >= victory_durations[victory_tune_note]) {
-        victory_tune_note++;
-        
-        if (victory_tune_note < num_victory_notes) {
-            audio_play_frequency(victory_notes[victory_tune_note]);
-            victory_tune_timer = now;
-        } else {
-            audio_stop();
-            victory_tune_note = -1;
-        }
-    }
-}

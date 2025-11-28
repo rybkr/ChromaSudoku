@@ -193,13 +193,13 @@ void game_update() {
         }
 
         // Draw board to panel
-        static bool did_p = false;
-        if (!did_p) {
-
-            did_p = true;
-        audio_play_victory_tune();
-        }
         game_draw_board();
+
+        static bool did_play_start_tune = false;
+        if (!did_play_start_tune) {
+            audio_play_game_start();
+            did_play_start_tune = true;
+        }
 
         audio_update();
     }
@@ -298,23 +298,24 @@ void game_handle_joystick() {
             game_state.cursor_col--;
         }
     }
-
     if (direction & DIRECTION_E) {
         if (game_state.cursor_row < 8) {
             game_state.cursor_row++;
         }
     }
-
     if (direction & DIRECTION_W) {
         if (game_state.cursor_row > 0) {
             game_state.cursor_row--;
         }
     }
-
     if (direction & DIRECTION_S) {
         if (game_state.cursor_col < 8) {
             game_state.cursor_col++;
         }
+    }
+
+    if (direction != DIRECTION_NONE) {
+        audio_play_blip();
     }
 }
 
