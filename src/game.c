@@ -193,7 +193,15 @@ void game_update() {
         }
 
         // Draw board to panel
+        static bool did_p = false;
+        if (!did_p) {
+
+            did_p = true;
+        audio_play_victory_tune();
+        }
         game_draw_board();
+
+        audio_update();
     }
 }
 

@@ -26,6 +26,7 @@ int main() {
     printf("    [>] Initializing game:      "); game_init(); printf("ok\n");
     printf("[+] Gamestate ok\n\n");
 
+    audio_stop();
     oled_splash();
 
     printf("[+] Entering game loop\n");

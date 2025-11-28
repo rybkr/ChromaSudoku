@@ -1,17 +1,11 @@
-#ifndef AUDIO_H
-#define AUDIO_H
+#ifndef AUDIO_H_A6AEA1513B23504C
+#define AUDIO_H_A6AEA1513B23504C
 
-#include <stdint.h>
+void audio_init();
+void audio_update();
+void audio_stop();
 
-// Audio configuration
-#define AUDIO_PWM_PIN 36
-#define AUDIO_RATE 20000  // Sample rate in Hz
-#define AUDIO_WAVETABLE_SIZE 1000
-
-// Audio functions
-void audio_init(void);
 void audio_play_frequency(float freq);
-void audio_stop(void);
-void audio_play_victory_tune(void);
+void audio_play_victory_tune();
 
-#endif // AUDIO_H
+#endif // AUDIO_H_A6AEA1513B23504C
