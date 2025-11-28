@@ -5,7 +5,7 @@
 
 #define HUB75_PANEL_WIDTH  32
 #define HUB75_PANEL_HEIGHT 32
-#define HUB75_COLOR_DEPTH  4
+#define HUB75_COLOR_DEPTH  8
 
 #define COLOR_RED 255, 0, 0
 #define COLOR_RED 255, 0, 0
@@ -20,7 +20,10 @@
 
 void hub75_init();
 void hub75_refresh();
+void hub75_spin();
 
+void lock_refresh();
+void unlock_refresh();
 void hub75_set_pixel(uint8_t x, uint8_t y, uint8_t r, uint8_t g, uint8_t b);
 void hub75_clear();
 

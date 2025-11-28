@@ -84,12 +84,15 @@ void game_update() {
 
                 if (key == '1' || key == '2' || key == '3') {
                     current_screen_state = GAME_STATE_PLAYING;
+                    lock_refresh();
                     game_new_puzzle(selected_difficulty);
                     intro_animation_time = 0;
                     intro_animation_done = false;
                     intro_text_shown = false;
                     oled_clear(OLED_DISPLAY1);
                     oled_clear(OLED_DISPLAY2);
+                    hub75_clear();
+                    unlock_refresh();
                     break;
                 }
             }
@@ -193,6 +196,7 @@ void game_update() {
         }
 
         // Draw board to panel
+        hub75_clear();
         game_draw_board();
 
         static bool did_play_start_tune = false;
@@ -315,6 +319,7 @@ void game_handle_joystick() {
     }
 
     if (direction != DIRECTION_NONE) {
+        hub75_clear();
         audio_play_blip();
     }
 }
@@ -326,11 +331,10 @@ bool game_check_solved() {
 void game_draw_board() {
     if (show_help) {
         draw_help_screen();
-        hub75_refresh();
+        //hub75_refresh();
         return;
     }
 
-    hub75_clear();
     draw_sudoku_puzzle(&game_state.puzzle);
 
     uint32_t current_time = time_us_32() / 1000000;
@@ -341,7 +345,7 @@ void game_draw_board() {
         draw_cursor_ring(cursor_y, cursor_x);
     }
 
-    hub75_refresh();
+    //hub75_refresh();
 }
 
 static void draw_sudoku_puzzle(sudoku_puzzle_t *puzzle) {
@@ -403,10 +407,6 @@ static void draw_cursor_ring(float row, float col) {
 static void draw_intro_screen() {
     uint32_t current_time_ms = time_us_32() / 1000;
 
-    // Keep both LCDs showing splash during intro/menu
-    //display_show_splash();
-    //display2_show_splash();
-
     if (intro_animation_time == 0) {
         intro_animation_time = current_time_ms;
     }
@@ -415,6 +415,7 @@ static void draw_intro_screen() {
 
     // Phase 1: Color rush animation
     if (elapsed < 2000) {
+        lock_refresh();
         draw_color_rush_animation(elapsed);
         hub75_refresh();
 
@@ -429,8 +430,14 @@ static void draw_intro_screen() {
         return;
     }
 
-    // Phase 2: Difficulty menu on panel
-    hub75_clear();
+    unlock_refresh();
+    {
+        static bool did_clear = false;
+        if (!did_clear) {
+            hub75_clear();
+            did_clear = true;
+        }
+    }
 
     draw_char_5x7('1', 1, 3, COLOR_CYAN);
     draw_text("EASY", 8, 3, COLOR_WHITE);
@@ -449,7 +456,7 @@ static void draw_intro_screen() {
         did_show_difficulty = true;
     }
 
-    hub75_refresh();
+    //hub75_refresh();
     intro_animation_done = true;
 }
 
@@ -552,7 +559,7 @@ static void create_puzzle_from_solution(sudoku_puzzle_t *puzzle,
     }
     shuffle_array(positions, 81);
 
-    hub75_clear();
+    //hub75_clear();
 
     int removed = 0;
     for (int i = 0; i < 81 && removed < cells_to_remove; i++) {
@@ -572,7 +579,7 @@ static void create_puzzle_from_solution(sudoku_puzzle_t *puzzle,
 
         // Show progressive carving on panel
         draw_sudoku_puzzle(puzzle);
-        hub75_refresh();
+        //hub75_refresh();
     }
 }
 

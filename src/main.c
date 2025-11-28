@@ -6,6 +6,7 @@
 #include "audio.h"
 #include "oled.h"
 #include "eeprom.h"
+#include "pico/multicore.h"
 #include <stdio.h>
 
 int main() {
@@ -26,6 +27,7 @@ int main() {
     printf("    [>] Initializing game:      "); game_init(); printf("ok\n");
     printf("[+] Gamestate ok\n\n");
 
+    multicore_launch_core1(hub75_spin);
     audio_stop();
     oled_splash();
 

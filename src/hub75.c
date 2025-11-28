@@ -2,6 +2,8 @@
 #include "hub75.pio.h"
 #include "hardware/pio.h"
 #include "hardware/gpio.h"
+#include "hardware/sync.h"
+#include "pico/multicore.h"
 #include "pico/stdlib.h"
 
 #define HUB75_R1_PIN 6U
@@ -30,6 +32,10 @@ static float target_x = 0;
 static float target_y = 0;
 
 static const float lerp_speed = .3f;
+
+static volatile bool is_reading = false;
+static volatile uint32_t last_write = 0;
+static volatile bool refresh_lock = false;
 
 static void set_row_address(uint8_t row) {
     gpio_put(HUB75_A_PIN, row & 0x1U);
@@ -65,27 +71,53 @@ static void refresh_row(uint8_t row, uint8_t bit) {
     gpio_put(HUB75_LAT_PIN, 0);
 
     gpio_put(HUB75_OE_PIN, 0);
-    sleep_us(20U << bit);
+    sleep_us(4U << bit);
     gpio_put(HUB75_OE_PIN, 1);
 }
 
 void hub75_refresh(void) {
+    is_reading = true;
     for (uint8_t bit = 0; bit < HUB75_COLOR_DEPTH; ++bit) {
         for (uint8_t row = 0; row <  HUB75_PANEL_HEIGHT / 2; ++row) {
             refresh_row(row, bit);
         }
     }
+    is_reading = false;
+}
+
+void hub75_spin() {
+    while (1) {
+        if (!refresh_lock && (time_us_32() - last_write) >= 1000) {
+            hub75_refresh();
+            sleep_ms(1);
+        }
+    }
+}
+
+void lock_refresh() {
+    refresh_lock = true;
+}
+
+void unlock_refresh() {
+    refresh_lock = false;
 }
 
 void hub75_set_pixel(uint8_t x, uint8_t y, uint8_t r, uint8_t g, uint8_t b) {
+    while (is_reading) {
+        tight_loop_contents();
+    }
     if (x < HUB75_PANEL_WIDTH && y < HUB75_PANEL_HEIGHT) {
         framebuffer[y][x][0] = r;
         framebuffer[y][x][1] = g;
         framebuffer[y][x][2] = b;
     }
+    last_write = time_us_32() / 1000;
 }
 
 void hub75_clear(void) {
+    while (is_reading) {
+        tight_loop_contents();
+    }
     for (int y = 0; y < HUB75_PANEL_HEIGHT; y++) {
         for (int x = 0; x < HUB75_PANEL_WIDTH; x++) {
             framebuffer[y][x][0] = 0;
@@ -93,6 +125,7 @@ void hub75_clear(void) {
             framebuffer[y][x][2] = 0;
         }
     }
+    last_write = time_us_32() / 1000;
 }
 
 void hub75_init(void) {
