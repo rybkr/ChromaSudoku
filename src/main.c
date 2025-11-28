@@ -28,19 +28,13 @@ int main() {
     printf("    [>] Initializing game:      "); game_init(); printf("ok\n");
     printf("[+] Gamestate ok\n\n");
 
-    //display_show_splash();
+    display_show_splash();
     //display2_show_splash();
 
     //printf("[+] Entering game loop\n");
     //while (true) {
     //game_update();
     //}
-
-    display_clear();
-    display_print_at(0, 0, "hello");
-    
-    while (1)
-        ;
 
     return 0;
 }

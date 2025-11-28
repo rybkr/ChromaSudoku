@@ -7,9 +7,9 @@
 //#define SPI_DISP_SCK 27
 //#define SPI_DISP_CSn 29
 //#define SPI_DISP_TX 28
-const int SPI_DISP_SCK = 18; // Replace with your SCK pin number for the LCD/OLED display
-const int SPI_DISP_CSn = 21; // Replace with your CSn pin number for the LCD/OLED display
-const int SPI_DISP_TX = 19;  // Replace with your TX pin number for the LCD/OLED display
+const int SPI_DISP_SCK = 26; // Replace with your SCK pin number for the LCD/OLED display
+const int SPI_DISP_CSn = 25; // Replace with your CSn pin number for the LCD/OLED display
+const int SPI_DISP_TX = 27;  // Replace with your TX pin number for the LCD/OLED display
 
 void send_spi_cmd(spi_inst_t *spi, uint16_t value)
 {
@@ -27,40 +27,43 @@ void send_spi_data(spi_inst_t *spi, uint16_t value)
 
 // sets pins to spi role and initializes
 static void init_chardisp_pins(void) {
+    spi_init(spi1, 10000);
+    spi_set_format(spi1, 10, 0, 0, SPI_MSB_FIRST);
     gpio_set_function(SPI_DISP_CSn, GPIO_FUNC_SPI);
     gpio_set_function(SPI_DISP_SCK, GPIO_FUNC_SPI);
     gpio_set_function(SPI_DISP_TX, GPIO_FUNC_SPI);
-    spi_init(spi0, 10000);
-    spi_set_format(spi0, 10, 0, 0, SPI_MSB_FIRST);
 }
 
 static void cd_init(void) {
     sleep_ms(1);
-    send_spi_cmd(spi0, 0b0000101100);
+    send_spi_cmd(spi1, 0b0000111000);
 
-    sleep_ms(5);
-    send_spi_cmd(spi0, 0b0000001100);
+    sleep_us(40);
+    send_spi_cmd(spi1, 0b0000001100);
 
-    sleep_ms(5);
-    send_spi_cmd(spi0, 1);
-    sleep_ms(5);
-    send_spi_cmd(spi0, 2);
-    sleep_ms(5);
+    sleep_us(40);
+    send_spi_cmd(spi1, 0b0000000001);
+
+    sleep_ms(2);
+    send_spi_cmd(spi1, 0b0000000110);
+    send_spi_cmd(spi1, 0b0000000010);
+
+    sleep_ms(2);
 }
 
 void cd_display1(const char *str) {
-    send_spi_cmd(spi0, 2);
+    send_spi_cmd(spi1, 0x80);
     for (int i = 0; str[i] != 0; ++i)
     {
-        send_spi_data(spi0, str[i]);
+        send_spi_data(spi1, str[i]);
     }
 }
 
 void cd_display2(const char *str) {
-    send_spi_cmd(spi0, 0x2C);
+    send_spi_cmd(spi1, 0xC0);
     for (int i = 0; str[i] != 0; ++i)
     {
-        send_spi_data(spi0, str[i]);
+        send_spi_data(spi1, str[i]);
     }
 }
 
@@ -70,16 +73,16 @@ void display_init(void) {
 }
 
 void display_clear(void) {
-    send_spi_cmd(spi0, 0x01);
+    send_spi_cmd(spi1, 0b0000000001);
     sleep_ms(2);
 }
 
 void display_print_at(uint8_t row, uint8_t col, const char *msg) {
     uint8_t addr = (row == 0) ? 0x00 : 0x40;
-    send_spi_cmd(spi0, 0x80 | (addr + col)); // Set DDRAM address
+    send_spi_cmd(spi1, 0b0010000000 | addr | col);
 
     for (int i = 0; msg[i] != '\0' && col + i < 16; i++) {
-        send_spi_data(spi0, msg[i]);
+        send_spi_data(spi1, msg[i]);
     }
 }
 
