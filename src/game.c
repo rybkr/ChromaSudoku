@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <stdlib.h>
 
 static void draw_sudoku_puzzle(sudoku_puzzle_t *puzzle);
 static void draw_sudoku_cell(uint8_t row, uint8_t col, color_t color);
@@ -26,6 +27,7 @@ static color_t number_to_color(uint8_t num);
 
 static void create_puzzle_from_solution(sudoku_puzzle_t *puzzle, int cells_to_remove);
 static unsigned cells_to_remove_by_difficulty(difficulty_t difficulty);
+static void game_give_hint();
 
 static game_state_t game_state;
 static game_screen_state_t current_screen_state = GAME_STATE_INTRO;
@@ -44,6 +46,8 @@ static const float lerp_speed = .2f;
 static const float snap_threshold = .05f;
 static unsigned blink_start_time = 0;
 
+static unsigned randn = 0;
+
 void game_init() {
     memset(&game_state, 0, sizeof(game_state_t));
 
@@ -51,6 +55,8 @@ void game_init() {
     intro_animation_time = 0;
     intro_animation_done = false;
     intro_text_shown = false;
+
+    randn = rand() % 81;
 }
 
 void game_update() {
@@ -247,6 +253,7 @@ void game_handle_keypad() {
                     game_state.cursor_col,
                     0);
                 break;
+
             case '1':
             case '2':
             case '3':
@@ -262,6 +269,11 @@ void game_handle_keypad() {
                     game_state.cursor_col,
                     game_state.selected_color + 1);
                 break;
+
+            case '#':
+                game_give_hint();
+                break;
+                               
             default:
                 break;
             }
@@ -566,4 +578,17 @@ static unsigned cells_to_remove_by_difficulty(difficulty_t difficulty) {
     default:
         return cells_to_remove_by_difficulty(DIFFICULTY_DEFAULT);
     }
+}
+
+static void game_give_hint() {
+    while (game_state.puzzle.grid[randn] != 0) {
+        randn = (randn + 31) % 81;
+    }
+    game_state.puzzle.grid[randn] = game_state.puzzle.solution[randn];
+    
+    game_state.cursor_col = randn % 9;
+    game_state.cursor_row = randn / 9;
+    
+    blink_start_time = time_us_32() / 1000000;
+    randn = (randn + 1) % 81;
 }
