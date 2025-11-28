@@ -15,6 +15,13 @@ typedef enum {
     DIFFICULTY_DEFAULT = DIFFICULTY_EASY,
 } difficulty_t;
 
+typedef enum {
+    GAME_STATE_INTRO,
+    GAME_STATE_MENU,
+    GAME_STATE_PLAYING,
+    GAME_STATE_PAUSED,
+} game_screen_state_t;
+
 static const char *DIFFICULTY_NAMES[] = {
     [DIFFICULTY_EASY] = "Easy",
     [DIFFICULTY_MEDIUM] = "Med",
@@ -35,6 +42,10 @@ typedef struct {
     uint32_t best_time;
     
 } game_state_t;
+
+typedef struct {
+    uint8_t r, g, b;
+} color_t;
 
 static const struct {
     uint8_t r;

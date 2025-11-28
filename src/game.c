@@ -1,10 +1,9 @@
 #include "game.h"
 #include "audio.h"
-#include "display.h"
-#include "display2.h"
 #include "eeprom.h"
 #include "hub75.h"
 #include "font.h"
+#include "oled.h"
 #include "keypad.h"
 #include "joystick.h"
 #include "rng.h"
@@ -13,17 +12,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-
-typedef struct {
-    uint8_t r, g, b;
-} color_t;
-
-typedef enum {
-    GAME_STATE_INTRO,
-    GAME_STATE_MENU,
-    GAME_STATE_PLAYING,
-    GAME_STATE_PAUSED,
-} game_screen_state_t;
 
 static void draw_sudoku_puzzle(sudoku_puzzle_t *puzzle);
 static void draw_sudoku_cell(uint8_t row, uint8_t col, color_t color);
@@ -47,7 +35,7 @@ static bool show_help = false;
 
 static unsigned intro_animation_time = 0;
 static bool intro_animation_done = false;
-static bool intro_text_shown = false;   // currently unused, kept for future use
+static bool intro_text_shown = false;
 
 static float cursor_x = 4.f;
 static float cursor_y = 4.f;
@@ -65,120 +53,94 @@ void game_init() {
     intro_text_shown = false;
 }
 
-void game_new_puzzle(difficulty_t difficulty) {
-    game_state.difficulty = difficulty;
-    game_state.cursor_row = game_state.cursor_col = 4;
-    cursor_x = cursor_y = 4.0f;
-    game_state.selected_color = 0;
-    game_state.solved = false;
-    blink_start_time = time_us_32() / 1000000;
-
-    const int cells_to_remove = cells_to_remove_by_difficulty(difficulty);
-
-    clear(&game_state.puzzle);
-    solve_puzzle(&game_state.puzzle);
-    create_puzzle_from_solution(&game_state.puzzle, cells_to_remove);
-
-    game_state.start_time = time_us_32() / 1000000;
-    game_state.elapsed_time = 0;
-
-    // Load best time from EEPROM index 0
-    high_score_t hs;
-    if (eeprom_read_high_score(0, &hs) &&
-        hs.score != 0xFFFFFFFFu &&
-        hs.score != 0u) {
-        game_state.best_time = hs.score;
-    } else {
-        game_state.best_time = 0;  // no record yet
-    }
-
-    // LCD1: show difficulty briefly
-    const char *diff_str = DIFFICULTY_NAMES[game_state.difficulty];
-    display_show_difficulty(diff_str);
-
-    // LCD2: show HUD (best time + help hint)
-    display2_show_game_hud(game_state.best_time);
-}
-
 void game_update() {
-    uint32_t current_time = time_us_32() / 1000000;
+    const uint32_t current_time = time_us_32() / 1000000;
+    static uint32_t previous_time = -1;
 
-    // INTRO / MENU STATE
-    if (current_screen_state == GAME_STATE_INTRO ||
-        current_screen_state == GAME_STATE_MENU) {
-
-        // Always drive the intro visuals
+    if (current_screen_state == GAME_STATE_INTRO || current_screen_state == GAME_STATE_MENU) {
         draw_intro_screen();
 
-        // Check for difficulty selection (1, 2, or 3)
         while (1) {
             uint16_t event = keypad_get_event();
-            if (event == 0) break;
+            if (event == 0) {
+                break;
+            }
 
             if (keypad_is_pressed(event)) {
                 char key = keypad_get_char(event);
-
                 if (key == '1' && intro_animation_done) {
                     selected_difficulty = DIFFICULTY_EASY;
-                    current_screen_state = GAME_STATE_PLAYING;
-                    game_new_puzzle(selected_difficulty);
-                    intro_animation_time = 0;
-                    intro_animation_done = false;
-                    intro_text_shown = false;
-                    break;
                 } else if (key == '2' && intro_animation_done) {
                     selected_difficulty = DIFFICULTY_MEDIUM;
-                    current_screen_state = GAME_STATE_PLAYING;
-                    game_new_puzzle(selected_difficulty);
-                    intro_animation_time = 0;
-                    intro_animation_done = false;
-                    intro_text_shown = false;
-                    break;
                 } else if (key == '3' && intro_animation_done) {
                     selected_difficulty = DIFFICULTY_HARD;
+                }
+
+                if (key == '1' || key == '2' || key == '3') {
                     current_screen_state = GAME_STATE_PLAYING;
                     game_new_puzzle(selected_difficulty);
                     intro_animation_time = 0;
                     intro_animation_done = false;
                     intro_text_shown = false;
+                    oled_clear(OLED_DISPLAY1);
+                    oled_clear(OLED_DISPLAY2);
                     break;
                 }
             }
         }
+
         return;
     }
 
-    // PLAYING STATE
     if (current_screen_state == GAME_STATE_PLAYING) {
-        // Update time only while unsolved
         if (!game_state.solved) {
             game_state.elapsed_time = current_time - game_state.start_time;
         }
 
-        // LCD1: timer + mode
-        display_show_timer(game_state.elapsed_time);
-        display_show_mode(DIFFICULTY_NAMES[game_state.difficulty]);
+        if (current_time != previous_time) {
+            char buffer[16];
+            const unsigned mins = game_state.elapsed_time / 60;
+            const unsigned secs = game_state.elapsed_time % 60;
+            snprintf(buffer, (sizeof buffer), "Time:  %u:%02u     ", mins, secs);
+            buffer[15] = '\0';
+            oled_display_at(OLED_DISPLAY1, 0, 1, buffer);
+        }
+        
+        static bool did_show_difficulty = false;
+        if (!did_show_difficulty) {
+            char buffer[16];
+            snprintf(buffer, (sizeof buffer), "Level: %s", DIFFICULTY_NAMES[game_state.difficulty]);
+            buffer[15] = '\0';
+            oled_display_at(OLED_DISPLAY1, 1, 1, buffer);
+            did_show_difficulty = true;
+        }
 
-        // Handle keypad input for moves
+        static bool did_show_options = false;
+        if (!did_show_options) {
+            oled_display_at(OLED_DISPLAY2, 0, 1, "* Help");
+            oled_display_at(OLED_DISPLAY2, 1, 1, "# Hint");
+            did_show_options = true;
+        }
+
         game_handle_keypad();
         game_handle_joystick();
 
-        // Smooth cursor interpolation
-        float dx = game_state.cursor_col - cursor_x;
-        float dy = game_state.cursor_row - cursor_y;
-
-        if (fabsf(dx) > snap_threshold || fabsf(dy) > snap_threshold) {
-            cursor_x += dx * lerp_speed;
-            cursor_y += dy * lerp_speed;
-            cursor_moving = true;
-            blink_start_time = current_time;
-        } else {
-            cursor_x = game_state.cursor_col;
-            cursor_y = game_state.cursor_row;
-            cursor_moving = false;
+        // Handle smooth cursor motion
+        {
+            float dx = game_state.cursor_col - cursor_x;
+            float dy = game_state.cursor_row - cursor_y;
+            if (fabsf(dx) > snap_threshold || fabsf(dy) > snap_threshold) {
+                cursor_x += dx * lerp_speed;
+                cursor_y += dy * lerp_speed;
+                cursor_moving = true;
+                blink_start_time = current_time;
+            } else {
+                cursor_x = game_state.cursor_col;
+                cursor_y = game_state.cursor_row;
+                cursor_moving = false;
+            }
         }
 
-        // Check solved
         if (!game_state.solved && game_check_solved()) {
             game_state.solved = true;
             audio_play_victory_tune();
@@ -218,16 +180,52 @@ void game_update() {
             uint32_t best_to_show = new_record ? final_time : old_best;
 
             // LCD1: show final vs best
-            display_show_final_and_best(final_time, best_to_show);
+            //display_show_final_and_best(final_time, best_to_show);
 
             // LCD2: solved message (with or without new high score)
-            display2_show_solved(new_record);
+            //display2_show_solved(new_record);
         }
 
         // Draw board to panel
         game_draw_board();
     }
 }
+
+void game_new_puzzle(difficulty_t difficulty) {
+    game_state.difficulty = difficulty;
+    game_state.cursor_row = game_state.cursor_col = 4;
+    cursor_x = cursor_y = 4.0f;
+    game_state.selected_color = 0;
+    game_state.solved = false;
+    blink_start_time = time_us_32() / 1000000;
+
+    const int cells_to_remove = cells_to_remove_by_difficulty(difficulty);
+
+    clear(&game_state.puzzle);
+    solve_puzzle(&game_state.puzzle);
+    create_puzzle_from_solution(&game_state.puzzle, cells_to_remove);
+
+    game_state.start_time = time_us_32() / 1000000;
+    game_state.elapsed_time = 0;
+
+    // Load best time from EEPROM index 0
+    high_score_t hs;
+    if (eeprom_read_high_score(0, &hs) &&
+        hs.score != 0xFFFFFFFFu &&
+        hs.score != 0u) {
+        game_state.best_time = hs.score;
+    } else {
+        game_state.best_time = 0;  // no record yet
+    }
+
+    // LCD1: show difficulty briefly
+    const char *diff_str = DIFFICULTY_NAMES[game_state.difficulty];
+    //display_show_difficulty(diff_str);
+
+    // LCD2: show HUD (best time + help hint)
+    //display2_show_game_hud(game_state.best_time);
+}
+
 
 void game_handle_keypad() {
     show_help = keypad_is_key_held('*');
@@ -385,8 +383,8 @@ static void draw_intro_screen() {
     uint32_t current_time_ms = time_us_32() / 1000;
 
     // Keep both LCDs showing splash during intro/menu
-    display_show_splash();
-    display2_show_splash();
+    //display_show_splash();
+    //display2_show_splash();
 
     if (intro_animation_time == 0) {
         intro_animation_time = current_time_ms;
@@ -398,6 +396,15 @@ static void draw_intro_screen() {
     if (elapsed < 2000) {
         draw_color_rush_animation(elapsed);
         hub75_refresh();
+
+        static bool did_show_welcome = false;
+        if (!did_show_welcome) {
+            oled_clear(OLED_DISPLAY2);
+            oled_display_at(OLED_DISPLAY2, 0, 1, "Welcome!");
+            oled_display_at(OLED_DISPLAY2, 1, 1, "Loading game...");
+            did_show_welcome = true;
+        }
+
         return;
     }
 
@@ -412,6 +419,14 @@ static void draw_intro_screen() {
 
     draw_char_5x7('3', 1, 23, COLOR_RED);
     draw_text("HARD", 8, 23, 255, 255, 255);
+
+    static bool did_show_difficulty = false;
+    if (!did_show_difficulty) {
+        oled_clear(OLED_DISPLAY2);
+        oled_display_at(OLED_DISPLAY2, 0, 0, "Pick Difficulty");
+        oled_display_at(OLED_DISPLAY2, 1, 0, " 1=E  2=M  3=H ");
+        did_show_difficulty = true;
+    }
 
     hub75_refresh();
     intro_animation_done = true;
