@@ -1,68 +1,69 @@
 #include "display2.h"
-#include "eeprom.h"
 #include "hardware/gpio.h"
 #include "hardware/spi.h"
 #include "pico/stdlib.h"
 #include <stdio.h>
 
 // define gpio pins connected to the LCD #2
-const int SPI1_DISP_SCK = 10;
-const int SPI1_DISP_CSn = 9;
-const int SPI1_DISP_TX = 11;
+const int SPI0_DISP_SCK = 22;
+const int SPI0_DISP_CSn = 17;
+const int SPI0_DISP_TX = 23;
 
 // waits until spi is free then sends to LCD
 static void send_spi_cmd(spi_inst_t *spi, uint16_t value) {
     while (spi_is_busy(spi)) {
-        // Wait for SPI to be ready
     }
     spi_write16_blocking(spi, &value, 1);
 }
 
 // calls send spi cmd and adds data bit
 static void send_spi_data(spi_inst_t *spi, uint16_t value) {
-    send_spi_cmd(spi, value | 0x100U);
+    send_spi_cmd(spi, value | 0x200U);
 }
 
 // sets pins to spi role and initializes at 10khz
 static void init_chardisp_pins(void) {
-    gpio_set_function(SPI1_DISP_CSn, GPIO_FUNC_SPI);
-    gpio_set_function(SPI1_DISP_SCK, GPIO_FUNC_SPI);
-    gpio_set_function(SPI1_DISP_TX, GPIO_FUNC_SPI);
-    spi_init(spi1, 10000); // once it works move to 200khz - 1MHz
-    spi_set_format(spi1, 9, 0, 0, SPI_MSB_FIRST); // 9 bits, mode 0, MSB first
+    spi_init(spi0, 10000);
+    spi_set_format(spi0, 10, 0, 0, SPI_MSB_FIRST);
+    gpio_set_function(SPI0_DISP_CSn, GPIO_FUNC_SPI);
+    gpio_set_function(SPI0_DISP_SCK, GPIO_FUNC_SPI);
+    gpio_set_function(SPI0_DISP_TX, GPIO_FUNC_SPI);
 }
 
 static void cd_init(void) {
-    sleep_ms(15);
+    sleep_ms(1);
+    send_spi_cmd(spi0, 0b0000111000);
 
-    send_spi_cmd(spi1, 0x028); // function set
     sleep_us(40);
+    send_spi_cmd(spi0, 0b0000001100);
 
-    send_spi_cmd(spi1, 0x00C); // display control
     sleep_us(40);
+    send_spi_cmd(spi0, 0b0000000001);
 
-    send_spi_cmd(spi1, 0x001); // clear display
     sleep_ms(2);
+    send_spi_cmd(spi0, 0b0000000110);
+    send_spi_cmd(spi0, 0b0000000010);
 
-    send_spi_cmd(spi1, 0x002); // return home
-    sleep_us(40);
-
-    send_spi_cmd(spi1, 0x006); // Entry mode set
+    sleep_ms(2);
 }
 
 // sets cursor to line 1
 static void cd_display1(const char *str) {
-    send_spi_cmd(spi1, 0x80);
+    send_spi_cmd(spi0, 0x80);
+    sleep_us(40);  // Wait for command to complete
     for (int i = 0; str[i] != 0; ++i) {
-        send_spi_data(spi1, str[i]);
+        send_spi_data(spi0, str[i]);
+        sleep_us(40);  // Small delay between characters
     }
 }
 
 // sets cursor to line 2
 static void cd_display2(const char *str) {
-    send_spi_cmd(spi1, 0xC0);
+    send_spi_cmd(spi0, 0xC0);
+    sleep_us(40);  // Wait for command to complete
     for (int i = 0; str[i] != 0; ++i) {
-        send_spi_data(spi1, str[i]);
+        send_spi_data(spi0, str[i]);
+        sleep_us(40);  // Small delay between characters
     }
 }
 
@@ -72,22 +73,24 @@ void display2_init(void) {
 }
 
 void display2_clear(void) {
-    send_spi_cmd(spi1, 0x01);
+    send_spi_cmd(spi0, 0x01);
     sleep_ms(2);
 }
 
 void display2_print_at(uint8_t row, uint8_t col, const char *msg) {
     uint8_t addr = (row == 0) ? 0x00 : 0x40;
-    send_spi_cmd(spi1, 0x80 | (addr + col)); // Set DDRAM address
+    send_spi_cmd(spi0, 0b0010000000 | addr | col);
+    sleep_us(40);  // Wait for command to complete
 
     for (int i = 0; msg[i] != '\0' && col + i < 16; i++) {
-        send_spi_data(spi1, msg[i]);
+        send_spi_data(spi0, msg[i]);
+        sleep_us(40);  // Small delay between characters
     }
 }
 
 void display2_show_splash(void) {
-    // NO delay and NO clear at the end – we want this to persist
     display2_clear();
+    send_spi_cmd(spi0, 0b0000000010);
     display2_print_at(0, 0, " Chroma Sudoku ");
     display2_print_at(1, 0, "    Team 76    ");
 }

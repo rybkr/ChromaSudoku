@@ -11,6 +11,7 @@ const int SPI_DISP_SCK = 26; // Replace with your SCK pin number for the LCD/OLE
 const int SPI_DISP_CSn = 25; // Replace with your CSn pin number for the LCD/OLED display
 const int SPI_DISP_TX = 27;  // Replace with your TX pin number for the LCD/OLED display
 
+static
 void send_spi_cmd(spi_inst_t *spi, uint16_t value)
 {
     while (spi_is_busy(spi))
@@ -20,6 +21,7 @@ void send_spi_cmd(spi_inst_t *spi, uint16_t value)
 }
 
 // calls send spi cmd and adds data bit
+static
 void send_spi_data(spi_inst_t *spi, uint16_t value)
 {
     send_spi_cmd(spi, value | 0x200U);
@@ -87,7 +89,6 @@ void display_print_at(uint8_t row, uint8_t col, const char *msg) {
 }
 
 void display_show_splash(void) {
-    // NO long delay and NO clear at the end
     display_clear();
     display_print_at(0, 0, " Chroma Sudoku ");
     display_print_at(1, 0, "    Team 76    ");
@@ -98,7 +99,6 @@ void display_show_difficulty(const char *difficulty) {
     snprintf(buf, sizeof(buf), "Difficulty: %-3s", difficulty);
     cd_display1(buf);
     // brief pause is fine here – called once when starting game
-    sleep_ms(900);
 }
 
 void display_show_timer(uint32_t seconds) {

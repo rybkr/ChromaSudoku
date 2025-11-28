@@ -5,9 +5,9 @@
 #include <stdbool.h>
 
 // SPI display 2 pin configuration - update these for your hardware
-extern const int SPI1_DISP_SCK;
-extern const int SPI1_DISP_CSn;
-extern const int SPI1_DISP_TX;
+extern const int SPI0_DISP_SCK;
+extern const int SPI0_DISP_CSn;
+extern const int SPI0_DISP_TX;
 
 // Basic display-2 functions
 void display2_init(void);
