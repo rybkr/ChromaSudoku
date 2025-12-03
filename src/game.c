@@ -325,6 +325,11 @@ void game_handle_joystick() {
 }
 
 bool game_check_solved() {
+    for (unsigned i = 0; i < 81; ++i) {
+        if (game_state.puzzle.grid[i] == 0) {
+            return false;
+        }
+    }
     return is_valid(&game_state.puzzle);
 }
 
@@ -415,7 +420,7 @@ static void draw_intro_screen() {
 
     // Phase 1: Color rush animation
     if (elapsed < 2000) {
-        lock_refresh();
+        //lock_refresh();
         draw_color_rush_animation(elapsed);
         hub75_refresh();
 
@@ -480,8 +485,6 @@ static void draw_help_screen() {
 }
 
 static void draw_color_rush_animation(uint32_t time_ms) {
-    hub75_clear();
-
     for (uint8_t y = 0; y < HUB75_PANEL_HEIGHT; y++) {
         for (uint8_t x = 0; x < HUB75_PANEL_WIDTH; x++) {
             float wave_pos = (float)(x + y + time_ms / 10) * 0.3f;
