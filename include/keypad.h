@@ -1,5 +1,5 @@
-#ifndef KEYPAD_H_CB9C1A5B6910FB2F
-#define KEYPAD_H_CB9C1A5B6910FB2F
+#ifndef KEYPAD_H_CF5C5FBB219A82A0
+#define KEYPAD_H_CF5C5FBB219A82A0
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -11,4 +11,4 @@ char keypad_get_char(uint16_t event);
 bool keypad_is_pressed(uint16_t event);
 bool keypad_is_key_held(char key);
 
-#endif // KEYPAD_H_CB9C1A5B6910FB2F
+#endif // KEYPAD_H_CF5C5FBB219A82A0

@@ -110,7 +110,7 @@ void game_update() {
             char buffer[16];
             const unsigned mins = game_state.elapsed_time / 60;
             const unsigned secs = game_state.elapsed_time % 60;
-            snprintf(buffer, (sizeof buffer), "Time:  %u:%02u     ", mins, secs);
+            snprintf(buffer, (sizeof buffer), "Time:  %02u:%02u     ", mins, secs);
             buffer[15] = '\0';
             oled_display_at(OLED_DISPLAY1, 0, 1, buffer);
         }
@@ -126,8 +126,11 @@ void game_update() {
 
         static bool did_show_options = false;
         if (!did_show_options) {
-            oled_display_at(OLED_DISPLAY2, 0, 1, "* Help");
-            oled_display_at(OLED_DISPLAY2, 1, 1, "# Hint");
+            char buf[17];
+            snprintf(buf, (sizeof buf), "Best time: %02u:%02u", (game_state.best_time / 60), (game_state.best_time % 60));
+            buf[16] = '\0';
+            oled_display_at(OLED_DISPLAY2, 0, 0, " *=Help  #=Hint ");
+            oled_display_at(OLED_DISPLAY2, 1, 0, buf);
             did_show_options = true;
         }
 
@@ -154,45 +157,11 @@ void game_update() {
             game_state.solved = true;
             audio_play_victory_tune();
 
-            // Final time is the current elapsed_time (already frozen above)
             uint32_t final_time = game_state.elapsed_time;
-
-            // Determine current best from EEPROM
-            high_score_t hs;
-            bool has_valid_best =
-                eeprom_read_high_score(0, &hs) &&
-                hs.score != 0xFFFFFFFFu &&
-                hs.score != 0u;
-
-            uint32_t old_best = has_valid_best ? hs.score : 0xFFFFFFFFu;
-            bool new_record = !has_valid_best || (final_time < old_best);
-
-            // If new record, write to EEPROM
-            if (new_record) {
-                high_score_t new_hs;
-                new_hs.score = final_time;
-                // optional name "CHROMA"
-                for (int i = 0; i < 16; ++i) {
-                    new_hs.name[i] = 0;
-                }
-                new_hs.name[0] = 'C';
-                new_hs.name[1] = 'H';
-                new_hs.name[2] = 'R';
-                new_hs.name[3] = 'O';
-                new_hs.name[4] = 'M';
-                new_hs.name[5] = 'A';
-                eeprom_write_high_score(0, &new_hs);
-
-                game_state.best_time = final_time;
+            if (final_time < game_state.best_time) {
+                high_score_t hs = final_time;
+                eeprom_write_high_score(game_state.difficulty, &hs);
             }
-
-            uint32_t best_to_show = new_record ? final_time : old_best;
-
-            // LCD1: show final vs best
-            //display_show_final_and_best(final_time, best_to_show);
-
-            // LCD2: solved message (with or without new high score)
-            //display2_show_solved(new_record);
         }
 
         // Draw board to panel
@@ -226,22 +195,12 @@ void game_new_puzzle(difficulty_t difficulty) {
     game_state.start_time = time_us_32() / 1000000;
     game_state.elapsed_time = 0;
 
-    // Load best time from EEPROM index 0
     high_score_t hs;
-    if (eeprom_read_high_score(0, &hs) &&
-        hs.score != 0xFFFFFFFFu &&
-        hs.score != 0u) {
-        game_state.best_time = hs.score;
+    if (eeprom_read_high_score(game_state.difficulty, &hs)) {
+        game_state.best_time = hs;
     } else {
-        game_state.best_time = 0;  // no record yet
+        game_state.best_time = 5999;
     }
-
-    // LCD1: show difficulty briefly
-    const char *diff_str = DIFFICULTY_NAMES[game_state.difficulty];
-    //display_show_difficulty(diff_str);
-
-    // LCD2: show HUD (best time + help hint)
-    //display2_show_game_hud(game_state.best_time);
 }
 
 

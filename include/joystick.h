@@ -1,5 +1,5 @@
-#ifndef JOYSTICK_H_CB9C1A5B6910FB2F
-#define JOYSTICK_H_CB9C1A5B6910FB2F
+#ifndef JOYSTICK_H_933B00F11C05BCD3
+#define JOYSTICK_H_933B00F11C05BCD3
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -23,4 +23,4 @@ uint32_t joystick_get_event();
 
 direction_t joystick_is_pressed(uint32_t event);
 
-#endif // JOYSTICK_H_CB9C1A5B6910FB2F
+#endif // JOYSTICK_H_933B00F11C05BCD3

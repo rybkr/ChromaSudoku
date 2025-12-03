@@ -27,6 +27,12 @@ int main() {
     printf("    [>] Initializing game:      "); game_init(); printf("ok\n");
     printf("[+] Gamestate ok\n\n");
 
+    //if (eeprom_clear_high_scores()) {
+    //    printf("[>] Initializing high scores:   ok\n\n");
+    //} else {
+    //    printf("[>] Initializing high scores:   error\n\n");
+    //}
+
     multicore_launch_core1(hub75_spin);
     audio_stop();
     oled_splash();

@@ -1,5 +1,5 @@
-#ifndef HUB75_H_CB9C1A5B6910FB2F
-#define HUB75_H_CB9C1A5B6910FB2F
+#ifndef HUB75_H_95995C08A1CA79D5
+#define HUB75_H_95995C08A1CA79D5
 
 #include <stdint.h>
 
@@ -30,4 +30,4 @@ void hub75_clear();
 void hub75_set_cursor(uint8_t x, uint8_t y);
 void hub75_update(void);
 
-#endif // HUB75_H_CB9C1A5B6910FB2F
+#endif // HUB75_H_95995C08A1CA79D5

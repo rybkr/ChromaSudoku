@@ -1,5 +1,5 @@
-#ifndef GAME_H_CB9C1A5B6910FB2F
-#define GAME_H_CB9C1A5B6910FB2F
+#ifndef GAME_H_48146DFD52ED1E93
+#define GAME_H_48146DFD52ED1E93
 
 #include "hub75.h"
 #include "sudoku.h"
@@ -7,10 +7,10 @@
 #include <stdint.h>
 
 typedef enum {
-    DIFFICULTY_BEGIN = 1,
+    DIFFICULTY_BEGIN = 0,
     DIFFICULTY_EASY = DIFFICULTY_BEGIN,
-    DIFFICULTY_MEDIUM = 2,
-    DIFFICULTY_HARD = 3,
+    DIFFICULTY_MEDIUM,
+    DIFFICULTY_HARD,
     DIFFICULTY_COUNT,
     DIFFICULTY_DEFAULT = DIFFICULTY_EASY,
 } difficulty_t;
@@ -66,4 +66,4 @@ void game_handle_joystick();
 bool game_check_solved();
 void game_draw_board();
 
-#endif // GAME_H_CB9C1A5B6910FB2F
+#endif // GAME_H_48146DFD52ED1E93
